@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -21,16 +20,15 @@ func login(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, authURL, 301)
 }
 
-func handleCodeAndGetToken(w http.ResponseWriter, r *http.Request) {
+func getTokenAndData(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
-	token := processCodeAndGetToken(code, r)
-	log.Fatalf("Unable to create Fitness service: %v", token)
-	w.Write([]byte("okay"))
+	googleClient := processCodeAndGetClient(code, r)
+	fitnessMain(googleClient)
 }
 
 func init() {
 	http.HandleFunc("/", login)
-	http.HandleFunc("/authRedirect", handleCodeAndGetToken)
+	http.HandleFunc("/authRedirect", getTokenAndData)
 
 	scopes := []string{
 		fitness.FitnessActivityReadScope,
@@ -48,68 +46,40 @@ func millisToTime(t int64) time.Time {
 	return time.Unix(0, t*nanosPerMilli)
 }
 
-func fitnessMain(client *http.Client, argv []string) {
-	if len(argv) != 0 {
-		fmt.Fprintln(os.Stderr, "Usage: fitness")
-		return
-	}
+func startOfDayTime(t time.Time) time.Time {
+	year, month, day := t.Date()
+	return time.Date(year, month, day, 0, 0, 0, 0, t.Location())
+}
 
+func endOfDayTime(t time.Time) time.Time {
+	year, month, day := t.Date()
+	return time.Date(year, month, day, 24, 59, 59, 1000, t.Location())
+}
+
+func fitnessMain(client *http.Client) {
 	svc, err := fitness.New(client)
 	if err != nil {
 		log.Fatalf("Unable to create Fitness service: %v", err)
 	}
 
-	us, err := svc.Users.Sessions.List("me").Do()
-	if err != nil {
-		log.Fatalf("Unable to retrieve user's sessions: %v", err)
-	}
-	if len(us.Session) == 0 {
-		log.Fatal("You have no user sessions to explore.")
-	}
-
+	var totalSteps int64 = 0
 	var minTime, maxTime time.Time
-	for _, s := range us.Session {
-		start := millisToTime(s.StartTimeMillis)
-		end := millisToTime(s.EndTimeMillis)
-		if minTime.IsZero() || start.Before(minTime) {
-			minTime = start
+	minTime = startOfDayTime(time.Now())
+	maxTime = endOfDayTime(time.Now())
+	setID := fmt.Sprintf("%v-%v", minTime.UnixNano(), maxTime.UnixNano())
+	data, err := svc.Users.DataSources.Datasets.Get("me", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID).Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve user's data source stream %v, %v: %v", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID, err)
+	}
+	for _, p := range data.Point {
+		for _, v := range p.Value {
+			t := millisToTime(p.ModifiedTimeMillis).Format(layout)
+			totalSteps += v.IntVal
+			log.Printf("data at %v = %v", t, v.IntVal)
 		}
-		if maxTime.IsZero() || end.After(maxTime) {
-			maxTime = end
-		}
-		log.Printf("Session %q, %v - %v, activity type=%v", s.Name, start.Format(layout), end.Format(layout), s.ActivityType)
 	}
 
-	ds, err := svc.Users.DataSources.List("me").Do()
-	if err != nil {
-		log.Fatalf("Unable to retrieve user's data sources: %v", err)
-	}
-	if len(ds.DataSource) == 0 {
-		log.Fatal("You have no data sources to explore.")
-	}
-	for _, d := range ds.DataSource {
-		format := "integer"
-		if d.DataType != nil && len(d.DataType.Field) > 0 {
-			f := d.DataType.Field[0]
-			format = f.Format
-			log.Printf("Data source %q, name %q is of type %q", d.DataStreamName, f.Name, format)
-		} else {
-			log.Printf("Data source %q is of type %q", d.DataStreamName, d.Type)
-		}
-		setID := fmt.Sprintf("%v-%v", minTime.UnixNano(), maxTime.UnixNano())
-		data, err := svc.Users.DataSources.Datasets.Get("me", d.DataStreamId, setID).Do()
-		if err != nil {
-			log.Fatalf("Unable to retrieve user's data source stream %v, %v: %v", d.DataStreamId, setID, err)
-		}
-		for _, p := range data.Point {
-			for _, v := range p.Value {
-				t := millisToTime(p.ModifiedTimeMillis).Format(layout)
-				if format == "integer" {
-					log.Printf("data at %v = %v", t, v.IntVal)
-				} else {
-					log.Printf("data at %v = %v", t, v.FpVal)
-				}
-			}
-		}
-	}
+	log.Printf("Total steps = %v", totalSteps)
+	//}
+
 }

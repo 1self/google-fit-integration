@@ -44,10 +44,6 @@ func getAuthURL() string {
 		})
 	}
 	return tokenFromWeb(ctx, config)
-	// c := newOAuthClient(ctx, config)
-
-	// callback := demoFunc[name]
-	// callback(c, []string{})
 }
 
 func getConfig() *oauth2.Config {
@@ -61,11 +57,11 @@ func getConfig() *oauth2.Config {
 }
 
 var (
-	demoFunc  = make(map[string]func(*http.Client, []string))
+	demoFunc  = make(map[string]func(*http.Client))
 	demoScope = make(map[string]string)
 )
 
-func registerDemo(name, scope string, main func(c *http.Client, argv []string)) {
+func registerDemo(name, scope string, main func(c *http.Client)) {
 	if demoFunc[name] != nil {
 		panic(name + " already registered")
 	}
@@ -116,20 +112,6 @@ func saveToken(file string, token *oauth2.Token) {
 	gob.NewEncoder(f).Encode(token)
 }
 
-// func newOAuthClient(ctx context.Context, config *oauth2.Config) *http.Client {
-// 	cacheFile := tokenCacheFile(config)
-// 	token, err := tokenFromFile(cacheFile)
-// 	if err != nil {
-// 		return tokenFromWeb(ctx, config)
-// 	}
-// 	// 	saveToken(cacheFile, token)
-// 	// } else {
-// 	// 	log.Printf("Using cached token %#v from %q", token, cacheFile)
-// 	// }
-
-// 	// return config.Client(ctx, token)
-// }
-
 func tokenFromWeb(ctx context.Context, config *oauth2.Config) string {
 	randState := fmt.Sprintf("st%d", time.Now().UnixNano())
 
@@ -138,7 +120,7 @@ func tokenFromWeb(ctx context.Context, config *oauth2.Config) string {
 	return authURL
 }
 
-func processCodeAndGetToken(code string, req *http.Request) *oauth2.Token {
+func processCodeAndGetClient(code string, req *http.Request) *http.Client {
 	log.Printf("Got code: %s", code)
 	config := getConfig()
 	ctx := appengine.NewContext(req)
@@ -147,7 +129,10 @@ func processCodeAndGetToken(code string, req *http.Request) *oauth2.Token {
 	if err != nil {
 		log.Fatalf("Token exchange error: %v", err)
 	}
-	return token
+
+	log.Printf("Token found: %v", token)
+
+	return config.Client(ctx, token)
 }
 
 func openURL(url string) {
