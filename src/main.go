@@ -53,7 +53,7 @@ func startOfDayTime(t time.Time) time.Time {
 
 func endOfDayTime(t time.Time) time.Time {
 	year, month, day := t.Date()
-	return time.Date(year, month, day, 24, 59, 59, 1000, t.Location())
+	return time.Date(year, month, day, 23, 59, 59, 1000, t.Location())
 }
 
 func fitnessMain(client *http.Client) {
@@ -66,6 +66,9 @@ func fitnessMain(client *http.Client) {
 	var minTime, maxTime time.Time
 	minTime = startOfDayTime(time.Now())
 	maxTime = endOfDayTime(time.Now())
+
+	log.Printf("%v-%v", minTime.UnixNano(), maxTime.UnixNano())
+
 	setID := fmt.Sprintf("%v-%v", minTime.UnixNano(), maxTime.UnixNano())
 	data, err := svc.Users.DataSources.Datasets.Get("me", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID).Do()
 	if err != nil {
@@ -80,5 +83,4 @@ func fitnessMain(client *http.Client) {
 	}
 
 	log.Printf("Total steps = %v", totalSteps)
-	//}
 }

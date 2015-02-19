@@ -14,13 +14,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
 	"appengine"
+	"appengine/datastore"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -33,6 +33,13 @@ var (
 	debug        = true
 	name         = "fitness"
 )
+
+type UserDetails struct {
+	AccessToken  string
+	RefreshToken string
+	UserName     string
+	Date         time.Time
+}
 
 func getAuthURL() string {
 	config := getConfig()
@@ -102,14 +109,36 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 	return t, err
 }
 
-func saveToken(file string, token *oauth2.Token) {
-	f, err := os.Create(file)
+func findTokenById(id int64, req *http.Request) UserDetails {
+	ctx := appengine.NewContext(req)
+	var userDetails UserDetails
+
+	key := datastore.NewKey(ctx, "UserDetails", "", id, nil)
+	err := datastore.Get(ctx, key, &userDetails)
 	if err != nil {
-		log.Printf("Warning: failed to cache oauth token: %v", err)
+		log.Printf("error while fetching records: %v", err)
+	}
+
+	log.Printf("found record %v", userDetails)
+
+	return userDetails
+}
+
+func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
+	ud := UserDetails{
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		Date:         time.Now(),
+	}
+	key := datastore.NewIncompleteKey(ctx, "UserDetails", nil)
+	id, err := datastore.Put(ctx, key, &ud)
+	if err != nil {
+		log.Printf("Problem while storing token: %v", err)
 		return
 	}
-	defer f.Close()
-	gob.NewEncoder(f).Encode(token)
+
+	log.Printf("Token stored successfully with id: %v", intID())
+	return key.intID()
 }
 
 func tokenFromWeb(ctx context.Context, config *oauth2.Config) string {
@@ -121,7 +150,7 @@ func tokenFromWeb(ctx context.Context, config *oauth2.Config) string {
 }
 
 func processCodeAndGetClient(code string, req *http.Request) *http.Client {
-	log.Printf("Got code: %s", code)
+	log.Printf("Got code")
 	config := getConfig()
 	ctx := appengine.NewContext(req)
 
@@ -130,20 +159,10 @@ func processCodeAndGetClient(code string, req *http.Request) *http.Client {
 		log.Fatalf("Token exchange error: %v", err)
 	}
 
-	log.Printf("Token found: %v", token)
+	log.Printf("Token found")
+	saveToken(ctx, token)
 
 	return config.Client(ctx, token)
-}
-
-func openURL(url string) {
-	try := []string{"xdg-open", "google-chrome", "open"}
-	for _, bin := range try {
-		err := exec.Command(bin, url).Run()
-		if err == nil {
-			return
-		}
-	}
-	log.Printf("Error opening URL in browser.")
 }
 
 func valueOrFileContents(value string, filename string) string {
