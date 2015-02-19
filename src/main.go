@@ -81,5 +81,4 @@ func fitnessMain(client *http.Client) {
 
 	log.Printf("Total steps = %v", totalSteps)
 	//}
-
 }
