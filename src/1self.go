@@ -12,9 +12,15 @@ import (
 	"appengine/urlfetch"
 )
 
+var (
+	oneselfappIDFile     = "1self-appId.txt"
+	oneselfappSecretFile = "1self-appSecret.txt"
+)
+
 const (
-	API_ENDPOINT           string = "http://app-staging.1self.co"
-	SEND_BATCH_EVENTS_PATH string = "/v1/streams/%v/events/batch"
+	API_ENDPOINT             string = "http://app-staging.1self.co"
+	SEND_BATCH_EVENTS_PATH   string = "/v1/streams/%v/events/batch"
+	REGISTER_STREAM_ENDPOINT        = "/v1/streams"
 )
 
 type Event struct {
@@ -22,6 +28,12 @@ type Event struct {
 	ActionTags []string         `json:"actionTags"`
 	DateTime   string           `json:"dateTime"`
 	Properties map[string]int64 `json:"properties"`
+}
+
+type Stream struct {
+	Id         string `json:"streamid"`
+	ReadToken  string `json:"readToken"`
+	WriteToken string `json:"writeToken"`
 }
 
 func sendTo1self(stepsMapPerHour map[string]int64, req *http.Request) {
@@ -70,7 +82,6 @@ func sendEvents(json_events []byte, req *http.Request) {
 	req.Header.Set("Authorization", writeToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	//	client := &http.Client{}
 	client := urlfetch.Client(c)
 	resp, err := client.Do(req)
 	if err != nil {
@@ -82,4 +93,38 @@ func sendEvents(json_events []byte, req *http.Request) {
 	log.Printf("response Headers: %v", resp.Header)
 	body, _ := ioutil.ReadAll(resp.Body)
 	log.Printf("response Body: %v", string(body))
+}
+
+func registerStream(req *http.Request) *Stream {
+	appId := valueOrFileContents("", oneselfappIDFile)
+	appSecret := valueOrFileContents("", oneselfappSecretFile)
+
+	c := appengine.NewContext(req)
+	url := API_ENDPOINT + REGISTER_STREAM_ENDPOINT
+	log.Printf("URL:", url)
+
+	req, err := http.NewRequest("POST", url, nil)
+	req.Header.Set("Authorization", appId+":"+appSecret)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := urlfetch.Client(c)
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	log.Printf("response Status: %v", resp.Status)
+	log.Printf("response Headers: %v", resp.Header)
+	body, _ := ioutil.ReadAll(resp.Body)
+	log.Printf("response Body: %v", string(body))
+
+	stream := &Stream{}
+
+	if err := json.Unmarshal(body, &stream); err != nil {
+		panic(err)
+	}
+
+	log.Printf("Stream received: %v", stream)
+	return stream
 }

@@ -26,9 +26,14 @@ func getTokenAndData(w http.ResponseWriter, r *http.Request) {
 	sendTo1self(sumStepsByHour, r)
 }
 
+func register(w http.ResponseWriter, r *http.Request) {
+	registerStream(r)
+}
+
 func init() {
 	http.HandleFunc("/", login)
 	http.HandleFunc("/authRedirect", getTokenAndData)
+	http.HandleFunc("/register", register)
 
 	scopes := []string{
 		fitness.FitnessActivityReadScope,
