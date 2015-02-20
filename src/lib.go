@@ -64,15 +64,10 @@ func getConfig() *oauth2.Config {
 }
 
 var (
-	demoFunc  = make(map[string]func(*http.Client))
 	demoScope = make(map[string]string)
 )
 
-func registerDemo(name, scope string, main func(c *http.Client)) {
-	if demoFunc[name] != nil {
-		panic(name + " already registered")
-	}
-	demoFunc[name] = main
+func registerDemo(name, scope string) {
 	demoScope[name] = scope
 }
 
@@ -124,7 +119,7 @@ func findTokenById(id int64, req *http.Request) UserDetails {
 	return userDetails
 }
 
-func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
+func saveToken(ctx appengine.Context, token *oauth2.Token) {
 	ud := UserDetails{
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
@@ -137,8 +132,7 @@ func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
 		return
 	}
 
-	log.Printf("Token stored successfully with id: %v", intID())
-	return key.intID()
+	log.Printf("Token stored successfully with id: %v", id)
 }
 
 func tokenFromWeb(ctx context.Context, config *oauth2.Config) string {

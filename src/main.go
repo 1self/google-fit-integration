@@ -2,16 +2,15 @@ package main
 
 import (
 	"fmt"
+	fitness "google.golang.org/api/fitness/v1"
 	"log"
 	"net/http"
 	"strings"
 	"time"
-
-	fitness "google.golang.org/api/fitness/v1"
 )
 
 const (
-	layout        = "Jan 2, 2006 at 3:04pm" // for time.Format
+	layout        = time.RFC3339
 	nanosPerMilli = 1e6
 )
 
@@ -23,7 +22,8 @@ func login(w http.ResponseWriter, r *http.Request) {
 func getTokenAndData(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
 	googleClient := processCodeAndGetClient(code, r)
-	fitnessMain(googleClient)
+	sumStepsByHour := fitnessMain(googleClient)
+	sendTo1self(sumStepsByHour, r)
 }
 
 func init() {
@@ -38,7 +38,7 @@ func init() {
 		fitness.FitnessLocationReadScope,
 		fitness.FitnessLocationWriteScope,
 	}
-	registerDemo("fitness", strings.Join(scopes, " "), fitnessMain)
+	registerDemo("fitness", strings.Join(scopes, " "))
 }
 
 // millisToTime converts Unix millis to time.Time.
@@ -56,7 +56,7 @@ func endOfDayTime(t time.Time) time.Time {
 	return time.Date(year, month, day, 23, 59, 59, 1000, t.Location())
 }
 
-func fitnessMain(client *http.Client) {
+func fitnessMain(client *http.Client) map[string]int64 {
 	svc, err := fitness.New(client)
 	if err != nil {
 		log.Fatalf("Unable to create Fitness service: %v", err)
@@ -67,7 +67,7 @@ func fitnessMain(client *http.Client) {
 	minTime = startOfDayTime(time.Now())
 	maxTime = endOfDayTime(time.Now())
 
-	log.Printf("%v-%v", minTime.UnixNano(), maxTime.UnixNano())
+	var sumStepsByHour = make(map[string]int64)
 
 	setID := fmt.Sprintf("%v-%v", minTime.UnixNano(), maxTime.UnixNano())
 	data, err := svc.Users.DataSources.Datasets.Get("me", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID).Do()
@@ -77,10 +77,13 @@ func fitnessMain(client *http.Client) {
 	for _, p := range data.Point {
 		for _, v := range p.Value {
 			t := millisToTime(p.ModifiedTimeMillis).Format(layout)
+			sumStepsByHour[t] += v.IntVal
 			totalSteps += v.IntVal
 			log.Printf("data at %v = %v", t, v.IntVal)
 		}
 	}
 
-	log.Printf("Total steps = %v", totalSteps)
+	log.Printf("Total steps so far today = %v", totalSteps)
+
+	return sumStepsByHour
 }
