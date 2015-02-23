@@ -10,8 +10,11 @@ import (
 )
 
 const (
-	layout        = time.RFC3339
-	nanosPerMilli = 1e6
+	layout                  = time.RFC3339
+	nanosPerMilli           = 1e6
+	HOST_DOMAIN             = "http://localhost:8080"
+	SYNC_ENDPOINT           = "/sync"
+	OAUTH_CALLBACK_ENDPOINT = "/authRedirect"
 )
 
 func login(w http.ResponseWriter, r *http.Request) {
@@ -19,21 +22,34 @@ func login(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, authURL, 301)
 }
 
-func getTokenAndData(w http.ResponseWriter, r *http.Request) {
+func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
-	googleClient := processCodeAndGetClient(code, r)
-	sumStepsByHour := fitnessMain(googleClient)
-	sendTo1self(sumStepsByHour, r)
+	dbId := processCodeAndStoreToken(code, r)
+	log.Printf("database stored id %v", dbId)
+	oneself_stream := registerStream(r, dbId)
+	syncData(dbId, oneself_stream, r)
+	var visualizationURL string = API_ENDPOINT + fmt.Sprintf(VISUALIZATION_ENDPOINT, oneself_stream.Id)
+	w.Write([]byte("viz_url" + visualizationURL))
 }
 
-func register(w http.ResponseWriter, r *http.Request) {
-	registerStream(r)
+func handleSyncRequest(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func stream(w http.ResponseWriter, r *http.Request) {
+	registerStream(r, 123543252542352345)
+}
+
+func nothingAvailableNow(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("nothing available here"))
 }
 
 func init() {
-	http.HandleFunc("/", login)
-	http.HandleFunc("/authRedirect", getTokenAndData)
-	http.HandleFunc("/register", register)
+	http.HandleFunc("/", nothingAvailableNow)
+	http.HandleFunc("/login", login)
+	http.HandleFunc("/authRedirect", getTokenAndSyncData)
+	http.HandleFunc("/sync", handleSyncRequest)
+	http.HandleFunc("/stream", stream)
 
 	scopes := []string{
 		fitness.FitnessActivityReadScope,
@@ -44,6 +60,12 @@ func init() {
 		fitness.FitnessLocationWriteScope,
 	}
 	registerDemo("fitness", strings.Join(scopes, " "))
+}
+
+func syncData(id int64, stream *Stream, r *http.Request) {
+	googleClient := getClientForId(id, r)
+	sumStepsByHour := fitnessMain(googleClient)
+	sendTo1self(sumStepsByHour, stream, r)
 }
 
 // millisToTime converts Unix millis to time.Time.

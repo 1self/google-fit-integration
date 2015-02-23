@@ -1,15 +1,15 @@
 package main
 
 import (
+	"appengine"
+	"appengine/urlfetch"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-
-	"appengine"
-	"appengine/urlfetch"
+	"strconv"
 )
 
 var (
@@ -20,7 +20,8 @@ var (
 const (
 	API_ENDPOINT             string = "http://app-staging.1self.co"
 	SEND_BATCH_EVENTS_PATH   string = "/v1/streams/%v/events/batch"
-	REGISTER_STREAM_ENDPOINT        = "/v1/streams"
+	REGISTER_STREAM_ENDPOINT string = "/v1/streams"
+	VISUALIZATION_ENDPOINT   string = "/v1/streams/%v/events/steps/walked/sum(numberOfSteps)/daily/barchart"
 )
 
 type Event struct {
@@ -36,12 +37,12 @@ type Stream struct {
 	WriteToken string `json:"writeToken"`
 }
 
-func sendTo1self(stepsMapPerHour map[string]int64, req *http.Request) {
+func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, req *http.Request) {
 	eventsList := getListOfEvents(stepsMapPerHour)
 	json_events, _ := json.Marshal(eventsList)
 	log.Printf("Events json list: %v", string(json_events))
 
-	sendEvents(json_events, req)
+	sendEvents(json_events, stream, req)
 }
 
 func getListOfEvents(stepsMapPerHour map[string]int64) []Event {
@@ -62,17 +63,9 @@ func getListOfEvents(stepsMapPerHour map[string]int64) []Event {
 	return listOfEvents
 }
 
-func getStreamId() string {
-	return "PXHIZINJOBYKCPDG"
-}
-
-func getWriteToken() string {
-	return "38a7f08e845c52aa057d6308c6ea9bb35a0909e6f7d3"
-}
-
-func sendEvents(json_events []byte, req *http.Request) {
-	streamId := getStreamId()
-	writeToken := getWriteToken()
+func sendEvents(json_events []byte, stream *Stream, req *http.Request) {
+	streamId := stream.Id
+	writeToken := stream.WriteToken
 	c := appengine.NewContext(req)
 
 	url := API_ENDPOINT + fmt.Sprintf(SEND_BATCH_EVENTS_PATH, streamId)
@@ -95,7 +88,8 @@ func sendEvents(json_events []byte, req *http.Request) {
 	log.Printf("response Body: %v", string(body))
 }
 
-func registerStream(req *http.Request) *Stream {
+func registerStream(req *http.Request, uid int64) *Stream {
+	log.Printf("Registering stream")
 	appId := valueOrFileContents("", oneselfappIDFile)
 	appSecret := valueOrFileContents("", oneselfappSecretFile)
 
@@ -103,7 +97,11 @@ func registerStream(req *http.Request) *Stream {
 	url := API_ENDPOINT + REGISTER_STREAM_ENDPOINT
 	log.Printf("URL:", url)
 
-	req, err := http.NewRequest("POST", url, nil)
+	var jsonStr = []byte(`{"callbackUrl": "` + syncCallbackUrl(uid) + `"}`)
+
+	log.Printf("Callback url built: %v", bytes.NewBuffer(jsonStr))
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 	req.Header.Set("Authorization", appId+":"+appSecret)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -125,6 +123,11 @@ func registerStream(req *http.Request) *Stream {
 		panic(err)
 	}
 
+	log.Printf("Stream registration successful")
 	log.Printf("Stream received: %v", stream)
 	return stream
+}
+
+func syncCallbackUrl(uid int64) string {
+	return HOST_DOMAIN + SYNC_ENDPOINT + "?uid=" + strconv.FormatInt(uid, 10) + "&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
 }

@@ -5,17 +5,10 @@
 package main
 
 import (
-	"encoding/gob"
-	"errors"
 	"fmt"
-	"hash/fnv"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -29,7 +22,6 @@ import (
 var (
 	clientIDFile = "google-api-clientId.txt"
 	secretFile   = "google-api-clientSecret.txt"
-	cacheToken   = true
 	debug        = true
 	name         = "fitness"
 )
@@ -59,7 +51,7 @@ func getConfig() *oauth2.Config {
 		ClientSecret: valueOrFileContents("", secretFile),
 		Endpoint:     google.Endpoint,
 		Scopes:       []string{demoScope[name]},
-		RedirectURL:  "http://localhost:8080/authRedirect",
+		RedirectURL:  HOST_DOMAIN + OAUTH_CALLBACK_ENDPOINT,
 	}
 }
 
@@ -71,41 +63,7 @@ func registerDemo(name, scope string) {
 	demoScope[name] = scope
 }
 
-func osUserCacheDir() string {
-	switch runtime.GOOS {
-	case "darwin":
-		return filepath.Join(os.Getenv("HOME"), "Library", "Caches")
-	case "linux", "freebsd":
-		return filepath.Join(os.Getenv("HOME"), ".cache")
-	}
-	log.Printf("TODO: osUserCacheDir on GOOS %q", runtime.GOOS)
-	return "."
-}
-
-func tokenCacheFile(config *oauth2.Config) string {
-	hash := fnv.New32a()
-	hash.Write([]byte(config.ClientID))
-	hash.Write([]byte(config.ClientSecret))
-	hash.Write([]byte(strings.Join(config.Scopes, " ")))
-	fn := fmt.Sprintf("go-api-demo-tok%v", hash.Sum32())
-	return filepath.Join(osUserCacheDir(), url.QueryEscape(fn))
-}
-
-func tokenFromFile(file string) (*oauth2.Token, error) {
-	if !cacheToken {
-		return nil, errors.New("--cachetoken is false")
-	}
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	t := new(oauth2.Token)
-	err = gob.NewDecoder(f).Decode(t)
-	return t, err
-}
-
-func findTokenById(id int64, req *http.Request) UserDetails {
-	ctx := appengine.NewContext(req)
+func findTokenById(id int64, ctx appengine.Context) UserDetails {
 	var userDetails UserDetails
 
 	key := datastore.NewKey(ctx, "UserDetails", "", id, nil)
@@ -119,7 +77,17 @@ func findTokenById(id int64, req *http.Request) UserDetails {
 	return userDetails
 }
 
-func saveToken(ctx appengine.Context, token *oauth2.Token) {
+func getClientForId(id int64, req *http.Request) *http.Client {
+	ctx := appengine.NewContext(req)
+	config := getConfig()
+	userDetails := findTokenById(id, ctx)
+	token := new(oauth2.Token)
+	token.AccessToken = userDetails.AccessToken
+
+	return config.Client(ctx, token)
+}
+
+func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
 	ud := UserDetails{
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
@@ -128,11 +96,12 @@ func saveToken(ctx appengine.Context, token *oauth2.Token) {
 	key := datastore.NewIncompleteKey(ctx, "UserDetails", nil)
 	id, err := datastore.Put(ctx, key, &ud)
 	if err != nil {
-		log.Printf("Problem while storing token: %v", err)
-		return
+		log.Fatalf("Problem while storing token: %v", err)
 	}
 
-	log.Printf("Token stored successfully with id: %v", id)
+	log.Printf("Token stored successfully with id: %v", id.IntID())
+
+	return id.IntID()
 }
 
 func tokenFromWeb(ctx context.Context, config *oauth2.Config) string {
@@ -143,7 +112,7 @@ func tokenFromWeb(ctx context.Context, config *oauth2.Config) string {
 	return authURL
 }
 
-func processCodeAndGetClient(code string, req *http.Request) *http.Client {
+func processCodeAndStoreToken(code string, req *http.Request) int64 {
 	log.Printf("Got code")
 	config := getConfig()
 	ctx := appengine.NewContext(req)
@@ -154,9 +123,9 @@ func processCodeAndGetClient(code string, req *http.Request) *http.Client {
 	}
 
 	log.Printf("Token found")
-	saveToken(ctx, token)
+	dbId := saveToken(ctx, token)
 
-	return config.Client(ctx, token)
+	return dbId
 }
 
 func valueOrFileContents(value string, filename string) string {
