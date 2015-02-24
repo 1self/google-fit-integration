@@ -6,6 +6,7 @@ import (
 	fitness "google.golang.org/api/fitness/v1"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -29,12 +30,27 @@ func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
 	log.Printf("database stored id %v", dbId)
 	oneself_stream := registerStream(r, dbId)
 	syncData(dbId, oneself_stream, r)
-	var visualizationURL string = API_ENDPOINT + fmt.Sprintf(VISUALIZATION_ENDPOINT, oneself_stream.Id)
+	var visualizationURL string = getVisualizationUrl(oneself_stream)
 	w.Write([]byte("viz_url" + visualizationURL))
 }
 
 func handleSyncRequest(w http.ResponseWriter, r *http.Request) {
+	uid := r.FormValue("uid")
+	streamId := r.FormValue("streamid")
+	writeToken := "something"
 
+	stream := &Stream{
+		Id:         streamId,
+		WriteToken: writeToken,
+	}
+
+	log.Printf("Started sync request for %v", uid)
+	dbId, _ := strconv.ParseInt(uid, 10, 64)
+
+	//move it to a thread
+	syncData(dbId, stream, r)
+	var visualizationURL string = getVisualizationUrl(stream)
+	w.Write([]byte("viz_url" + visualizationURL))
 }
 
 func nothingAvailableNow(w http.ResponseWriter, r *http.Request) {

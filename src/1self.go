@@ -37,6 +37,10 @@ type Stream struct {
 	WriteToken string `json:"writeToken"`
 }
 
+func getVisualizationUrl(oneself_stream *Stream) string {
+	return API_ENDPOINT + fmt.Sprintf(VISUALIZATION_ENDPOINT, oneself_stream.Id)
+}
+
 func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, req *http.Request) {
 	eventsList := getListOfEvents(stepsMapPerHour)
 	if len(eventsList) == 0 {
@@ -110,7 +114,6 @@ func registerStream(req *http.Request, uid int64) *Stream {
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 	req.Header.Set("Authorization", appId+":"+appSecret)
 	req.Header.Set("Content-Type", "application/json")
-
 	client := urlfetch.Client(c)
 	resp, err := client.Do(req)
 	if err != nil {
