@@ -65,11 +65,8 @@ func init() {
 
 	scopes := []string{
 		fitness.FitnessActivityReadScope,
-		fitness.FitnessActivityWriteScope,
 		fitness.FitnessBodyReadScope,
-		fitness.FitnessBodyWriteScope,
 		fitness.FitnessLocationReadScope,
-		fitness.FitnessLocationWriteScope,
 	}
 	registerDemo("fitness", strings.Join(scopes, " "))
 }
