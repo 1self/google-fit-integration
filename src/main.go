@@ -34,7 +34,7 @@ func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("viz_url" + visualizationURL))
 }
 
-func handleSyncRequest(w http.ResponseWriter, r *http.Request) {
+func syncOffline(w http.ResponseWriter, r *http.Request) {
 	uid := r.FormValue("uid")
 	streamId := r.FormValue("streamid")
 	writeToken := "something"
@@ -61,7 +61,7 @@ func init() {
 	http.HandleFunc("/", nothingAvailableNow)
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/authRedirect", getTokenAndSyncData)
-	http.HandleFunc("/sync", handleSyncRequest)
+	http.HandleFunc("/sync", syncOffline)
 
 	scopes := []string{
 		fitness.FitnessActivityReadScope,
