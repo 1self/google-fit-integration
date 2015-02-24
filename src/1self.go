@@ -39,8 +39,13 @@ type Stream struct {
 
 func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, req *http.Request) {
 	eventsList := getListOfEvents(stepsMapPerHour)
+	if len(eventsList) == 0 {
+		log.Printf("No events to send to 1self")
+		return
+	}
+
 	json_events, _ := json.Marshal(eventsList)
-	log.Printf("Events json list: %v", string(json_events))
+	log.Printf("Events list: %v", eventsList)
 
 	sendEvents(json_events, stream, req)
 }
@@ -64,6 +69,7 @@ func getListOfEvents(stepsMapPerHour map[string]int64) []Event {
 }
 
 func sendEvents(json_events []byte, stream *Stream, req *http.Request) {
+
 	streamId := stream.Id
 	writeToken := stream.WriteToken
 	c := appengine.NewContext(req)

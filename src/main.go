@@ -1,6 +1,7 @@
 package main
 
 import (
+	"appengine"
 	"fmt"
 	fitness "google.golang.org/api/fitness/v1"
 	"log"
@@ -36,10 +37,6 @@ func handleSyncRequest(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func stream(w http.ResponseWriter, r *http.Request) {
-	registerStream(r, 123543252542352345)
-}
-
 func nothingAvailableNow(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("nothing available here"))
 }
@@ -49,7 +46,6 @@ func init() {
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/authRedirect", getTokenAndSyncData)
 	http.HandleFunc("/sync", handleSyncRequest)
-	http.HandleFunc("/stream", stream)
 
 	scopes := []string{
 		fitness.FitnessActivityReadScope,
@@ -63,8 +59,13 @@ func init() {
 }
 
 func syncData(id int64, stream *Stream, r *http.Request) {
-	googleClient := getClientForId(id, r)
-	sumStepsByHour := fitnessMain(googleClient)
+	ctx := appengine.NewContext(r)
+	user := findUserById(id, ctx)
+	googleClient := getClientForUser(user, ctx)
+	sumStepsByHour, lastEventTime := fitnessMain(googleClient, user)
+	user.LastSyncTime = lastEventTime
+
+	updateUser(id, user, ctx)
 	sendTo1self(sumStepsByHour, stream, r)
 }
 
@@ -73,37 +74,28 @@ func millisToTime(t int64) time.Time {
 	return time.Unix(0, t*nanosPerMilli)
 }
 
-func startOfDayTime(t time.Time) time.Time {
-	year, month, day := t.Date()
-	return time.Date(year, month, day, 0, 0, 0, 0, t.Location())
-}
-
-func endOfDayTime(t time.Time) time.Time {
-	year, month, day := t.Date()
-	return time.Date(year, month, day, 23, 59, 59, 1000, t.Location())
-}
-
-func fitnessMain(client *http.Client) map[string]int64 {
+func fitnessMain(client *http.Client, user UserDetails) (map[string]int64, time.Time) {
 	svc, err := fitness.New(client)
 	if err != nil {
 		log.Fatalf("Unable to create Fitness service: %v", err)
 	}
 
 	var totalSteps int64 = 0
-	var minTime, maxTime time.Time
-	minTime = startOfDayTime(time.Now())
-	maxTime = endOfDayTime(time.Now())
+	var minTime, last_processed_event_time time.Time
+	minTime = user.LastSyncTime
+	var maxTime int64 = 1625716200000000000
 
 	var sumStepsByHour = make(map[string]int64)
 
-	setID := fmt.Sprintf("%v-%v", minTime.UnixNano(), maxTime.UnixNano())
+	setID := fmt.Sprintf("%v-%v", minTime.UnixNano(), maxTime)
 	data, err := svc.Users.DataSources.Datasets.Get("me", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID).Do()
 	if err != nil {
 		log.Fatalf("Unable to retrieve user's data source stream %v, %v: %v", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID, err)
 	}
 	for _, p := range data.Point {
 		for _, v := range p.Value {
-			t := millisToTime(p.ModifiedTimeMillis).Format(layout)
+			last_processed_event_time = millisToTime(p.ModifiedTimeMillis)
+			t := last_processed_event_time.Format(layout)
 			sumStepsByHour[t] += v.IntVal
 			totalSteps += v.IntVal
 			log.Printf("data at %v = %v", t, v.IntVal)
@@ -112,5 +104,5 @@ func fitnessMain(client *http.Client) map[string]int64 {
 
 	log.Printf("Total steps so far today = %v", totalSteps)
 
-	return sumStepsByHour
+	return sumStepsByHour, last_processed_event_time
 }

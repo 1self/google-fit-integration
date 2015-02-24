@@ -31,6 +31,7 @@ type UserDetails struct {
 	RefreshToken string
 	UserName     string
 	Date         time.Time
+	LastSyncTime time.Time
 }
 
 func getAuthURL() string {
@@ -63,7 +64,7 @@ func registerDemo(name, scope string) {
 	demoScope[name] = scope
 }
 
-func findTokenById(id int64, ctx appengine.Context) UserDetails {
+func findUserById(id int64, ctx appengine.Context) UserDetails {
 	var userDetails UserDetails
 
 	key := datastore.NewKey(ctx, "UserDetails", "", id, nil)
@@ -77,12 +78,20 @@ func findTokenById(id int64, ctx appengine.Context) UserDetails {
 	return userDetails
 }
 
-func getClientForId(id int64, req *http.Request) *http.Client {
-	ctx := appengine.NewContext(req)
+func updateUser(id int64, user UserDetails, ctx appengine.Context) {
+	key := datastore.NewKey(ctx, "UserDetails", "", id, nil)
+	_, err := datastore.Put(ctx, key, &user)
+	if err != nil {
+		log.Fatalf("Problem while updating user: %v", err)
+	}
+
+	log.Printf("User updated successfully")
+}
+
+func getClientForUser(user UserDetails, ctx appengine.Context) *http.Client {
 	config := getConfig()
-	userDetails := findTokenById(id, ctx)
 	token := new(oauth2.Token)
-	token.AccessToken = userDetails.AccessToken
+	token.AccessToken = user.AccessToken
 
 	return config.Client(ctx, token)
 }
@@ -92,6 +101,7 @@ func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
 		Date:         time.Now(),
+		LastSyncTime: startOfDayTime(time.Now()),
 	}
 	key := datastore.NewIncompleteKey(ctx, "UserDetails", nil)
 	id, err := datastore.Put(ctx, key, &ud)
@@ -102,6 +112,11 @@ func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
 	log.Printf("Token stored successfully with id: %v", id.IntID())
 
 	return id.IntID()
+}
+
+func startOfDayTime(t time.Time) time.Time {
+	year, month, day := t.Date()
+	return time.Date(year, month, day, 0, 0, 0, 0, t.Location())
 }
 
 func tokenFromWeb(ctx context.Context, config *oauth2.Config) string {
