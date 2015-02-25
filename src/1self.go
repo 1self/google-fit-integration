@@ -20,7 +20,7 @@ var (
 const (
 	API_ENDPOINT             string = "http://app-staging.1self.co"
 	SEND_BATCH_EVENTS_PATH   string = "/v1/streams/%v/events/batch"
-	REGISTER_STREAM_ENDPOINT string = "/v1/streams"
+	REGISTER_STREAM_ENDPOINT string = "/v1/users/%v/streams"
 	VISUALIZATION_ENDPOINT   string = "/v1/streams/%v/events/steps/walked/sum(numberOfSteps)/daily/barchart"
 )
 
@@ -98,13 +98,13 @@ func sendEvents(json_events []byte, stream *Stream, req *http.Request) {
 	log.Printf("response Body: %v", string(body))
 }
 
-func registerStream(req *http.Request, uid int64) *Stream {
+func registerStream(req *http.Request, uid int64, regToken string, username string) *Stream {
 	log.Printf("Registering stream")
 	appId := valueOrFileContents("", oneselfappIDFile)
 	appSecret := valueOrFileContents("", oneselfappSecretFile)
 
 	c := appengine.NewContext(req)
-	url := API_ENDPOINT + REGISTER_STREAM_ENDPOINT
+	url := API_ENDPOINT + fmt.Sprintf(REGISTER_STREAM_ENDPOINT, username)
 	log.Printf("URL:", url)
 
 	var jsonStr = []byte(`{"callbackUrl": "` + syncCallbackUrl(uid) + `"}`)
@@ -112,8 +112,14 @@ func registerStream(req *http.Request, uid int64) *Stream {
 	log.Printf("Callback url built: %v", bytes.NewBuffer(jsonStr))
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-	req.Header.Set("Authorization", appId+":"+appSecret)
+
+	auth_header := appId + ":" + appSecret
+
+	req.Header.Set("Authorization", auth_header)
+
+	req.Header.Set("registration-token", regToken)
 	req.Header.Set("Content-Type", "application/json")
+
 	client := urlfetch.Client(c)
 	resp, err := client.Do(req)
 	if err != nil {

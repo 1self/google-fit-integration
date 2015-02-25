@@ -2,6 +2,7 @@ package main
 
 import (
 	"appengine"
+	"code.google.com/p/sadbox/appengine/sessions"
 	"fmt"
 	fitness "google.golang.org/api/fitness/v1"
 	"log"
@@ -19,16 +20,45 @@ const (
 	OAUTH_CALLBACK_ENDPOINT = "/authRedirect"
 )
 
+var mStore = sessions.NewMemcacheStore("", []byte(valueOrFileContents("", "app-session-secret.txt")))
+
 func login(w http.ResponseWriter, r *http.Request) {
+	regToken := r.FormValue("registrationToken")
+	username := r.FormValue("username")
+	if "" == regToken || "" == username {
+		w.Write([]byte("Invalid request, no 1self metadata found"))
+		return
+	}
+
+	//store 1self meta-data in session
+	session, err := mStore.Get(r, "1self-meta")
+	session.Values["1self-registrationToken"] = regToken
+	session.Values["1self-username"] = username
+	save_err := session.Save(r, w)
+
+	log.Printf("session %v, error %v", session, err)
+	log.Printf("session save error %v", save_err)
 	authURL := getAuthURL()
 	http.Redirect(w, r, authURL, 301)
+}
+
+func sess(w http.ResponseWriter, r *http.Request) {
+	session, err := mStore.Get(r, "1self-meta")
+	log.Printf("session %v, error %v", session, err)
+
+	log.Printf("username: %v", session.Values["1self-username"])
+	log.Printf("tok: %v", session.Values["1self-registrationToken"])
 }
 
 func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
 	dbId := processCodeAndStoreToken(code, r)
 	log.Printf("database stored id %v", dbId)
-	oneself_stream := registerStream(r, dbId)
+	session, _ := mStore.Get(r, "1self-meta")
+	oneselfRegToken := fmt.Sprintf("%v", session.Values["1self-registrationToken"])
+	oneselfUsername := fmt.Sprintf("%v", session.Values["1self-username"])
+
+	oneself_stream := registerStream(r, dbId, oneselfRegToken, oneselfUsername)
 	syncData(dbId, oneself_stream, r)
 	var visualizationURL string = getVisualizationUrl(oneself_stream)
 	w.Write([]byte("viz_url" + visualizationURL))
@@ -62,6 +92,7 @@ func init() {
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/authRedirect", getTokenAndSyncData)
 	http.HandleFunc("/sync", syncOffline)
+	http.HandleFunc("/sess", sess)
 
 	scopes := []string{
 		fitness.FitnessActivityReadScope,
