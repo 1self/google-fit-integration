@@ -22,6 +22,7 @@ const (
 	SEND_BATCH_EVENTS_PATH   string = "/v1/streams/%v/events/batch"
 	REGISTER_STREAM_ENDPOINT string = "/v1/users/%v/streams"
 	VISUALIZATION_ENDPOINT   string = "/v1/streams/%v/events/steps/walked/sum(numberOfSteps)/daily/barchart"
+	AFTER_SETUP_ENDPOINT     string = "/integrations"
 )
 
 type Event struct {

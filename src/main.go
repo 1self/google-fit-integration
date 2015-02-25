@@ -60,6 +60,7 @@ func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
 
 	oneself_stream := registerStream(r, dbId, oneselfRegToken, oneselfUsername)
 	syncData(dbId, oneself_stream, r)
+
 	var visualizationURL string = getVisualizationUrl(oneself_stream)
 	w.Write([]byte("viz_url" + visualizationURL))
 }
@@ -67,7 +68,7 @@ func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
 func syncOffline(w http.ResponseWriter, r *http.Request) {
 	uid := r.FormValue("uid")
 	streamId := r.FormValue("streamid")
-	writeToken := "something"
+	writeToken := r.Header.Get("Authorization")
 
 	stream := &Stream{
 		Id:         streamId,
