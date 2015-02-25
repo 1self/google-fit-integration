@@ -23,7 +23,7 @@ const (
 var mStore = sessions.NewMemcacheStore("", []byte(valueOrFileContents("", "app-session-secret.txt")))
 
 func login(w http.ResponseWriter, r *http.Request) {
-	regToken := r.FormValue("registrationToken")
+	regToken := r.FormValue("token")
 	username := r.FormValue("username")
 	if "" == regToken || "" == username {
 		w.Write([]byte("Invalid request, no 1self metadata found"))
