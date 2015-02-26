@@ -14,12 +14,12 @@ import (
 const (
 	layout                  = time.RFC3339
 	nanosPerMilli           = 1e6
-	HOST_DOMAIN             = "http://localhost:8080"
+	HOST_DOMAIN             = "http://gfit-1self-integration.appspot.com"
 	SYNC_ENDPOINT           = "/sync"
 	OAUTH_CALLBACK_ENDPOINT = "/authRedirect"
 )
 
-var mStore = sessions.NewMemcacheStore("", []byte(valueOrFileContents("", "app-session-secret.txt")))
+var mStore = sessions.NewMemcacheStore("", []byte(fileContents("app-session-secret.txt")))
 
 func login(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)

@@ -99,8 +99,8 @@ func sendEvents(json_events []byte, stream *Stream, ctx appengine.Context) {
 
 func registerStream(ctx appengine.Context, uid int64, regToken string, username string) *Stream {
 	ctx.Debugf("Registering stream")
-	appId := valueOrFileContents("", oneselfappIDFile)
-	appSecret := valueOrFileContents("", oneselfappSecretFile)
+	appId := fileContents(oneselfappIDFile)
+	appSecret := fileContents(oneselfappSecretFile)
 
 	url := API_ENDPOINT + fmt.Sprintf(REGISTER_STREAM_ENDPOINT, username)
 	ctx.Debugf("URL:", url)

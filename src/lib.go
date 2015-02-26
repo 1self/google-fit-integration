@@ -40,8 +40,8 @@ func getAuthURL(ctx appengine.Context) string {
 
 func getConfig() *oauth2.Config {
 	return &oauth2.Config{
-		ClientID:     valueOrFileContents("", clientIDFile),
-		ClientSecret: valueOrFileContents("", secretFile),
+		ClientID:     fileContents(clientIDFile),
+		ClientSecret: fileContents(secretFile),
 		Endpoint:     google.Endpoint,
 		Scopes:       []string{demoScope[name]},
 		RedirectURL:  HOST_DOMAIN + OAUTH_CALLBACK_ENDPOINT,
@@ -130,10 +130,7 @@ func processCodeAndStoreToken(code string, ctx appengine.Context) int64 {
 	return dbId
 }
 
-func valueOrFileContents(value string, filename string) string {
-	if value != "" {
-		return value
-	}
+func fileContents(filename string) string {
 	slurp, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Fatalf("Error reading %q: %v", filename, err)
