@@ -136,13 +136,12 @@ func fitnessMain(client *http.Client, user UserDetails, ctx appengine.Context) (
 	}
 
 	var totalSteps int64 = 0
-	var minTime, last_processed_event_time time.Time
-	minTime = user.LastSyncTime
+	last_processed_event_time := user.LastSyncTime
 	var maxTime int64 = 2025716200000000000
 
 	var sumStepsByHour = make(map[string]int64)
 
-	setID := fmt.Sprintf("%v-%v", minTime.UnixNano(), maxTime)
+	setID := fmt.Sprintf("%v-%v", last_processed_event_time.UnixNano(), maxTime)
 	data, err := svc.Users.DataSources.Datasets.Get("me", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID).Do()
 	if err != nil {
 		ctx.Criticalf("Unable to retrieve user's data source stream %v, %v: %v", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID, err)

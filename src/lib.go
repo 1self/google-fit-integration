@@ -94,7 +94,7 @@ func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
 		Date:         time.Now(),
-		LastSyncTime: startOfDayTime(time.Now()),
+		LastSyncTime: time.Now().AddDate(0, -1, 0),
 	}
 	key := datastore.NewIncompleteKey(ctx, "UserDetails", nil)
 	id, err := datastore.Put(ctx, key, &ud)
@@ -105,11 +105,6 @@ func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
 	ctx.Debugf("Token stored successfully with id: %v", id.IntID())
 
 	return id.IntID()
-}
-
-func startOfDayTime(t time.Time) time.Time {
-	year, month, day := t.Date()
-	return time.Date(year, month, day, 0, 0, 0, 0, t.Location())
 }
 
 func authURLFor(ctx appengine.Context, config *oauth2.Config) string {
