@@ -42,7 +42,7 @@ func getVisualizationUrl(oneself_stream *Stream) string {
 	return API_ENDPOINT + fmt.Sprintf(VISUALIZATION_ENDPOINT, oneself_stream.Id)
 }
 
-func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, req *http.Request) {
+func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, ctx appengine.Context) {
 	eventsList := getListOfEvents(stepsMapPerHour)
 	if len(eventsList) == 0 {
 		log.Printf("No events to send to 1self")
@@ -52,7 +52,7 @@ func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, req *http.Req
 	json_events, _ := json.Marshal(eventsList)
 	log.Printf("Events list: %v", eventsList)
 
-	sendEvents(json_events, stream, req)
+	sendEvents(json_events, stream, ctx)
 }
 
 func getListOfEvents(stepsMapPerHour map[string]int64) []Event {
@@ -73,11 +73,10 @@ func getListOfEvents(stepsMapPerHour map[string]int64) []Event {
 	return listOfEvents
 }
 
-func sendEvents(json_events []byte, stream *Stream, req *http.Request) {
+func sendEvents(json_events []byte, stream *Stream, ctx appengine.Context) {
 
 	streamId := stream.Id
 	writeToken := stream.WriteToken
-	c := appengine.NewContext(req)
 
 	url := API_ENDPOINT + fmt.Sprintf(SEND_BATCH_EVENTS_PATH, streamId)
 	log.Printf("URL:", url)
@@ -86,7 +85,7 @@ func sendEvents(json_events []byte, stream *Stream, req *http.Request) {
 	req.Header.Set("Authorization", writeToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := urlfetch.Client(c)
+	client := urlfetch.Client(ctx)
 	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)
@@ -99,12 +98,11 @@ func sendEvents(json_events []byte, stream *Stream, req *http.Request) {
 	log.Printf("response Body: %v", string(body))
 }
 
-func registerStream(req *http.Request, uid int64, regToken string, username string) *Stream {
+func registerStream(ctx appengine.Context, uid int64, regToken string, username string) *Stream {
 	log.Printf("Registering stream")
 	appId := valueOrFileContents("", oneselfappIDFile)
 	appSecret := valueOrFileContents("", oneselfappSecretFile)
 
-	c := appengine.NewContext(req)
 	url := API_ENDPOINT + fmt.Sprintf(REGISTER_STREAM_ENDPOINT, username)
 	log.Printf("URL:", url)
 
@@ -121,7 +119,7 @@ func registerStream(req *http.Request, uid int64, regToken string, username stri
 	req.Header.Set("registration-token", regToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := urlfetch.Client(c)
+	client := urlfetch.Client(ctx)
 	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)

@@ -127,10 +127,9 @@ func tokenFromWeb(ctx context.Context, config *oauth2.Config) string {
 	return authURL
 }
 
-func processCodeAndStoreToken(code string, req *http.Request) int64 {
+func processCodeAndStoreToken(code string, ctx appengine.Context) int64 {
 	log.Printf("Got code")
 	config := getConfig()
-	ctx := appengine.NewContext(req)
 
 	token, err := config.Exchange(ctx, code)
 	if err != nil {

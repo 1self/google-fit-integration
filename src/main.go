@@ -52,23 +52,31 @@ func sess(w http.ResponseWriter, r *http.Request) {
 
 func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
-	dbId := processCodeAndStoreToken(code, r)
+	ctx := appengine.NewContext(r)
+	dbId := processCodeAndStoreToken(code, ctx)
+
 	log.Printf("database stored id %v", dbId)
 	session, _ := mStore.Get(r, "1self-meta")
 	oneselfRegToken := fmt.Sprintf("%v", session.Values["1self-registrationToken"])
 	oneselfUsername := fmt.Sprintf("%v", session.Values["1self-username"])
 
-	oneself_stream := registerStream(r, dbId, oneselfRegToken, oneselfUsername)
-	syncData(dbId, oneself_stream, r)
+	oneself_stream := registerStream(ctx, dbId, oneselfRegToken, oneselfUsername)
+	go syncData(dbId, oneself_stream, ctx)
 
-	var visualizationURL string = getVisualizationUrl(oneself_stream)
-	w.Write([]byte("viz_url" + visualizationURL))
+	integrationsURL := API_ENDPOINT + AFTER_SETUP_ENDPOINT
+	http.Redirect(w, r, integrationsURL, 301)
 }
 
 func syncOffline(w http.ResponseWriter, r *http.Request) {
 	uid := r.FormValue("uid")
 	streamId := r.FormValue("streamid")
 	writeToken := r.Header.Get("Authorization")
+	ctx := appengine.NewContext(r)
+
+	if "" == uid || "" == streamId {
+		w.Write([]byte("Invalid request, no 1self metadata found"))
+		return
+	}
 
 	stream := &Stream{
 		Id:         streamId,
@@ -78,8 +86,8 @@ func syncOffline(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Started sync request for %v", uid)
 	dbId, _ := strconv.ParseInt(uid, 10, 64)
 
-	//move it to a thread
-	syncData(dbId, stream, r)
+	go syncData(dbId, stream, ctx)
+
 	var visualizationURL string = getVisualizationUrl(stream)
 	w.Write([]byte("viz_url" + visualizationURL))
 }
@@ -103,15 +111,15 @@ func init() {
 	registerDemo("fitness", strings.Join(scopes, " "))
 }
 
-func syncData(id int64, stream *Stream, r *http.Request) {
-	ctx := appengine.NewContext(r)
+func syncData(id int64, stream *Stream, ctx appengine.Context) {
+	log.Printf("Sync started for %v", id)
 	user := findUserById(id, ctx)
 	googleClient := getClientForUser(user, ctx)
 	sumStepsByHour, lastEventTime := fitnessMain(googleClient, user)
 	user.LastSyncTime = lastEventTime
 
 	updateUser(id, user, ctx)
-	sendTo1self(sumStepsByHour, stream, r)
+	sendTo1self(sumStepsByHour, stream, ctx)
 }
 
 // millisToTime converts Unix millis to time.Time.
