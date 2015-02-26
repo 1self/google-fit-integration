@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 )
@@ -45,12 +44,12 @@ func getVisualizationUrl(oneself_stream *Stream) string {
 func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, ctx appengine.Context) {
 	eventsList := getListOfEvents(stepsMapPerHour)
 	if len(eventsList) == 0 {
-		log.Printf("No events to send to 1self")
+		ctx.Debugf("No events to send to 1self")
 		return
 	}
 
 	json_events, _ := json.Marshal(eventsList)
-	log.Printf("Events list: %v", eventsList)
+	ctx.Debugf("Events list: %v", eventsList)
 
 	sendEvents(json_events, stream, ctx)
 }
@@ -74,12 +73,12 @@ func getListOfEvents(stepsMapPerHour map[string]int64) []Event {
 }
 
 func sendEvents(json_events []byte, stream *Stream, ctx appengine.Context) {
-
+	ctx.Debugf("Starting to send events to 1self")
 	streamId := stream.Id
 	writeToken := stream.WriteToken
 
 	url := API_ENDPOINT + fmt.Sprintf(SEND_BATCH_EVENTS_PATH, streamId)
-	log.Printf("URL:", url)
+	ctx.Debugf("URL:", url)
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(json_events))
 	req.Header.Set("Authorization", writeToken)
@@ -92,23 +91,23 @@ func sendEvents(json_events []byte, stream *Stream, ctx appengine.Context) {
 	}
 	defer resp.Body.Close()
 
-	log.Printf("response Status: %v", resp.Status)
-	log.Printf("response Headers: %v", resp.Header)
+	ctx.Debugf("response Status after sending events: %v", resp.Status)
+	ctx.Debugf("response Headers: %v", resp.Header)
 	body, _ := ioutil.ReadAll(resp.Body)
-	log.Printf("response Body: %v", string(body))
+	ctx.Debugf("response Body after sending events: %v", string(body))
 }
 
 func registerStream(ctx appengine.Context, uid int64, regToken string, username string) *Stream {
-	log.Printf("Registering stream")
+	ctx.Debugf("Registering stream")
 	appId := valueOrFileContents("", oneselfappIDFile)
 	appSecret := valueOrFileContents("", oneselfappSecretFile)
 
 	url := API_ENDPOINT + fmt.Sprintf(REGISTER_STREAM_ENDPOINT, username)
-	log.Printf("URL:", url)
+	ctx.Debugf("URL:", url)
 
 	var jsonStr = []byte(`{"callbackUrl": "` + syncCallbackUrl(uid) + `"}`)
 
-	log.Printf("Callback url built: %v", bytes.NewBuffer(jsonStr))
+	ctx.Debugf("Callback url built: %v", bytes.NewBuffer(jsonStr))
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 
@@ -126,10 +125,10 @@ func registerStream(ctx appengine.Context, uid int64, regToken string, username 
 	}
 	defer resp.Body.Close()
 
-	log.Printf("response Status: %v", resp.Status)
-	log.Printf("response Headers: %v", resp.Header)
+	ctx.Debugf("response Status: %v", resp.Status)
+	ctx.Debugf("response Headers: %v", resp.Header)
 	body, _ := ioutil.ReadAll(resp.Body)
-	log.Printf("response Body: %v", string(body))
+	ctx.Debugf("response Body: %v", string(body))
 
 	stream := &Stream{}
 
@@ -137,8 +136,8 @@ func registerStream(ctx appengine.Context, uid int64, regToken string, username 
 		panic(err)
 	}
 
-	log.Printf("Stream registration successful")
-	log.Printf("Stream received: %v", stream)
+	ctx.Debugf("Stream registration successful")
+	ctx.Debugf("Stream received: %v", stream)
 	return stream
 }
 

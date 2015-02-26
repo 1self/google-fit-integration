@@ -14,7 +14,6 @@ import (
 
 	"appengine"
 	"appengine/datastore"
-	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -22,7 +21,6 @@ import (
 var (
 	clientIDFile = "google-api-clientId.txt"
 	secretFile   = "google-api-clientSecret.txt"
-	debug        = true
 	name         = "fitness"
 )
 
@@ -34,16 +32,10 @@ type UserDetails struct {
 	LastSyncTime time.Time
 }
 
-func getAuthURL() string {
+func getAuthURL(ctx appengine.Context) string {
 	config := getConfig()
 
-	ctx := context.Background()
-	if debug {
-		ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{
-			Transport: &logTransport{http.DefaultTransport},
-		})
-	}
-	return tokenFromWeb(ctx, config)
+	return authURLFor(ctx, config)
 }
 
 func getConfig() *oauth2.Config {
@@ -60,20 +52,21 @@ var (
 	demoScope = make(map[string]string)
 )
 
-func registerDemo(name, scope string) {
+func registerClient(name, scope string) {
 	demoScope[name] = scope
 }
 
 func findUserById(id int64, ctx appengine.Context) UserDetails {
+	ctx.Debugf("Starting to fetch user: %v", id)
 	var userDetails UserDetails
 
 	key := datastore.NewKey(ctx, "UserDetails", "", id, nil)
 	err := datastore.Get(ctx, key, &userDetails)
 	if err != nil {
-		log.Printf("error while fetching records: %v", err)
+		ctx.Debugf("error while fetching records: %v", err)
 	}
 
-	log.Printf("found record %v", userDetails)
+	ctx.Debugf("found record %v", userDetails)
 
 	return userDetails
 }
@@ -82,10 +75,10 @@ func updateUser(id int64, user UserDetails, ctx appengine.Context) {
 	key := datastore.NewKey(ctx, "UserDetails", "", id, nil)
 	_, err := datastore.Put(ctx, key, &user)
 	if err != nil {
-		log.Fatalf("Problem while updating user: %v", err)
+		ctx.Criticalf("Problem while updating user: %v", err)
 	}
 
-	log.Printf("User updated successfully")
+	ctx.Debugf("User updated successfully")
 }
 
 func getClientForUser(user UserDetails, ctx appengine.Context) *http.Client {
@@ -106,10 +99,10 @@ func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
 	key := datastore.NewIncompleteKey(ctx, "UserDetails", nil)
 	id, err := datastore.Put(ctx, key, &ud)
 	if err != nil {
-		log.Fatalf("Problem while storing token: %v", err)
+		ctx.Criticalf("Problem while storing token: %v", err)
 	}
 
-	log.Printf("Token stored successfully with id: %v", id.IntID())
+	ctx.Debugf("Token stored successfully with id: %v", id.IntID())
 
 	return id.IntID()
 }
@@ -119,24 +112,24 @@ func startOfDayTime(t time.Time) time.Time {
 	return time.Date(year, month, day, 0, 0, 0, 0, t.Location())
 }
 
-func tokenFromWeb(ctx context.Context, config *oauth2.Config) string {
+func authURLFor(ctx appengine.Context, config *oauth2.Config) string {
 	randState := fmt.Sprintf("st%d", time.Now().UnixNano())
 
 	authURL := config.AuthCodeURL(randState)
-	log.Printf("Authorize this app at: %s", authURL)
+	ctx.Debugf("Authorize this app at: %s", authURL)
 	return authURL
 }
 
 func processCodeAndStoreToken(code string, ctx appengine.Context) int64 {
-	log.Printf("Got code")
+	ctx.Debugf("Got code")
 	config := getConfig()
 
 	token, err := config.Exchange(ctx, code)
 	if err != nil {
-		log.Fatalf("Token exchange error: %v", err)
+		ctx.Criticalf("Token exchange error: %v", err)
 	}
 
-	log.Printf("Token found")
+	ctx.Debugf("Token found")
 	dbId := saveToken(ctx, token)
 
 	return dbId
