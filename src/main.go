@@ -14,7 +14,7 @@ import (
 const (
 	layout                  = time.RFC3339
 	nanosPerMilli           = 1e6
-	HOST_DOMAIN             = "http://gfit-1self-integration.appspot.com"
+	HOST_DOMAIN             = "http://localhost:8080"
 	SYNC_ENDPOINT           = "/sync"
 	OAUTH_CALLBACK_ENDPOINT = "/authRedirect"
 )
@@ -115,6 +115,9 @@ func init() {
 
 func syncData(id int64, stream *Stream, ctx appengine.Context) {
 	ctx.Debugf("Sync started for %v", id)
+	startSyncEvent := getSyncEvent("start")
+	sendEvents(startSyncEvent, stream, ctx)
+
 	user := findUserById(id, ctx)
 	googleClient := getClientForUser(user, ctx)
 	sumStepsByHour, lastEventTime := fitnessMain(googleClient, user, ctx)
@@ -122,6 +125,10 @@ func syncData(id int64, stream *Stream, ctx appengine.Context) {
 
 	updateUser(id, user, ctx)
 	sendTo1self(sumStepsByHour, stream, ctx)
+
+	ctx.Debugf("Sync successfully ended for %v, sending 1self complete event", id)
+	completeSyncEvent := getSyncEvent("complete")
+	sendEvents(completeSyncEvent, stream, ctx)
 }
 
 // millisToTime converts Unix millis to time.Time.

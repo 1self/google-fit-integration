@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 var (
@@ -31,6 +32,13 @@ type Event struct {
 	Properties map[string]int64 `json:"properties"`
 }
 
+type SyncEvent struct {
+	ObjectTags []string          `json:"objectTags"`
+	ActionTags []string          `json:"actionTags"`
+	DateTime   string            `json:"dateTime"`
+	Properties map[string]string `json:"properties"`
+}
+
 type Stream struct {
 	Id         string `json:"streamid"`
 	ReadToken  string `json:"readToken"`
@@ -42,7 +50,7 @@ func getVisualizationUrl(oneself_stream *Stream) string {
 }
 
 func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, ctx appengine.Context) {
-	eventsList := getListOfEvents(stepsMapPerHour)
+	eventsList := formatEvents(stepsMapPerHour)
 	if len(eventsList) == 0 {
 		ctx.Debugf("No events to send to 1self")
 		return
@@ -54,7 +62,23 @@ func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, ctx appengine
 	sendEvents(json_events, stream, ctx)
 }
 
-func getListOfEvents(stepsMapPerHour map[string]int64) []Event {
+func getSyncEvent(action string) []byte {
+	var listOfEvents []SyncEvent
+	syncEvent := SyncEvent{
+		ObjectTags: []string{"sync"},
+		ActionTags: []string{action},
+		DateTime:   time.Now().Format(layout),
+		Properties: map[string]string{
+			"source": "Google Fit",
+		},
+	}
+	listOfEvents = append(listOfEvents, syncEvent)
+	json_events, _ := json.Marshal(listOfEvents)
+
+	return json_events
+}
+
+func formatEvents(stepsMapPerHour map[string]int64) []Event {
 	var listOfEvents []Event
 
 	for t, sum := range stepsMapPerHour {
