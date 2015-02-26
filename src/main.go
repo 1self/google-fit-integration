@@ -63,7 +63,7 @@ func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
 	oneselfUsername := fmt.Sprintf("%v", session.Values["1self-username"])
 
 	oneself_stream := registerStream(ctx, dbId, oneselfRegToken, oneselfUsername)
-	go syncData(dbId, oneself_stream, ctx)
+	syncData(dbId, oneself_stream, ctx)
 
 	integrationsURL := API_ENDPOINT + AFTER_SETUP_ENDPOINT
 	http.Redirect(w, r, integrationsURL, 301)
@@ -88,7 +88,7 @@ func syncOffline(w http.ResponseWriter, r *http.Request) {
 	ctx.Debugf("Started sync request for %v", uid)
 	dbId, _ := strconv.ParseInt(uid, 10, 64)
 
-	go syncData(dbId, stream, ctx)
+	syncData(dbId, stream, ctx)
 
 	var visualizationURL string = getVisualizationUrl(stream)
 	w.Write([]byte("viz_url" + visualizationURL))
