@@ -14,7 +14,7 @@ import (
 const (
 	layout                  = time.RFC3339
 	nanosPerMilli           = 1e6
-	HOST_DOMAIN             = "http://gfit-1self-integration"
+	HOST_DOMAIN             = "http://gfit-1self-integration.com"
 	SYNC_ENDPOINT           = "/sync"
 	OAUTH_CALLBACK_ENDPOINT = "/authRedirect"
 )
