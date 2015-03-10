@@ -23,6 +23,8 @@ var (
 type UserDetails struct {
 	AccessToken  string
 	RefreshToken string
+	TokenExpiry  time.Time
+	TokenType    string
 	UserName     string
 	Date         time.Time
 	LastSyncTime time.Time
@@ -81,6 +83,9 @@ func getClientForUser(user UserDetails, ctx appengine.Context) *http.Client {
 	config := getConfig()
 	token := new(oauth2.Token)
 	token.AccessToken = user.AccessToken
+	token.RefreshToken = user.RefreshToken
+	token.Expiry = user.TokenExpiry
+	token.TokenType = user.TokenType
 
 	return config.Client(ctx, token)
 }
@@ -89,6 +94,8 @@ func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
 	ud := UserDetails{
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
+		TokenType:    token.TokenType,
+		TokenExpiry:  token.Expiry,
 		Date:         time.Now(),
 		LastSyncTime: time.Now().AddDate(0, -1, 0),
 	}
@@ -106,7 +113,7 @@ func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
 func authURLFor(ctx appengine.Context, config *oauth2.Config) string {
 	randState := fmt.Sprintf("st%d", time.Now().UnixNano())
 
-	authURL := config.AuthCodeURL(randState)
+	authURL := config.AuthCodeURL(randState, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
 	ctx.Debugf("Authorize this app at: %s", authURL)
 	return authURL
 }
@@ -120,7 +127,7 @@ func processCodeAndStoreToken(code string, ctx appengine.Context) int64 {
 		ctx.Criticalf("Token exchange error: %v", err)
 	}
 
-	ctx.Debugf("Token found")
+	ctx.Debugf("Token found %v", token)
 	dbId := saveToken(ctx, token)
 
 	return dbId

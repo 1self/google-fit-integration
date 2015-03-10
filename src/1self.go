@@ -18,7 +18,7 @@ var (
 )
 
 const (
-	API_ENDPOINT             string = "http://api.1self.co"
+	API_ENDPOINT             string = "http://app-staging.1self.co"
 	SEND_BATCH_EVENTS_PATH   string = "/v1/streams/%v/events/batch"
 	REGISTER_STREAM_ENDPOINT string = "/v1/users/%v/streams"
 	VISUALIZATION_ENDPOINT   string = "/v1/streams/%v/events/steps/walked/sum(numberOfSteps)/daily/barchart"
