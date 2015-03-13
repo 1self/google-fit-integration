@@ -1,5 +1,5 @@
 application: gfit-1self-integration
-version: 1m
+version: 1n
 runtime: go
 api_version: go1
 
