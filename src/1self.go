@@ -96,6 +96,15 @@ func formatEvents(stepsMapPerHour map[string]int64) []Event {
 	return listOfEvents
 }
 
+func getUrlFetchClient(ctx appengine.Context, t time.Duration) *http.Client {
+	return &http.Client{
+		Transport: &urlfetch.Transport{
+			Context:  ctx,
+			Deadline: t,
+		},
+	}
+}
+
 func sendEvents(json_events []byte, stream *Stream, ctx appengine.Context) {
 	ctx.Debugf("Starting to send events to 1self")
 	streamId := stream.Id
@@ -108,7 +117,8 @@ func sendEvents(json_events []byte, stream *Stream, ctx appengine.Context) {
 	req.Header.Set("Authorization", writeToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := urlfetch.Client(ctx)
+	client := getUrlFetchClient(ctx, time.Second*60)
+
 	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)
@@ -142,7 +152,8 @@ func registerStream(ctx appengine.Context, uid int64, regToken string, username 
 	req.Header.Set("registration-token", regToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := urlfetch.Client(ctx)
+	client := getUrlFetchClient(ctx, time.Second*60)
+
 	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)
