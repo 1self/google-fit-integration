@@ -123,9 +123,9 @@ func syncData(id int64, stream *Stream, ctx appengine.Context) {
 	sumStepsByHour, lastEventTime := fitnessMain(googleClient, user, ctx)
 	user.LastSyncTime = lastEventTime
 
-	updateUser(id, user, ctx)
 	sendTo1self(sumStepsByHour, stream, ctx)
 
+	updateUser(id, user, ctx)
 	ctx.Debugf("Sync successfully ended for %v, sending 1self complete event", id)
 	completeSyncEvent := getSyncEvent("complete")
 	sendEvents(completeSyncEvent, stream, ctx)
