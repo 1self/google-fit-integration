@@ -83,11 +83,11 @@ func formatEvents(stepsMapPerHour map[string]int64) []Event {
 
 	for t, sum := range stepsMapPerHour {
 		newEvent := Event{
-			ObjectTags: []string{"steps"},
-			ActionTags: []string{"walked"},
+			ObjectTags: []string{"self"},
+			ActionTags: []string{"exercise", "walk"},
 			DateTime:   t,
 			Properties: map[string]int64{
-				"numberOfSteps": sum,
+				"steps": sum,
 			},
 		}
 		listOfEvents = append(listOfEvents, newEvent)
