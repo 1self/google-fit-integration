@@ -130,8 +130,7 @@ func syncData(id int64, stream *Stream, ctx appengine.Context) {
 	sendEvents(completeSyncEvent, stream, ctx)
 }
 
-// millisToTime converts Unix millis to time.Time.
-func millisToTime(t int64) time.Time {
+func nanosToTime(t int64) time.Time {
 	return time.Unix(0, t)
 }
 
