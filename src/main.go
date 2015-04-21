@@ -13,7 +13,6 @@ import (
 
 const (
 	layout                  = time.RFC3339
-	nanosPerMilli           = 1e6
 	HOST_DOMAIN             = "http://gfit-1self-integration.appspot.com"
 	SYNC_ENDPOINT           = "/sync"
 	OAUTH_CALLBACK_ENDPOINT = "/authRedirect"
@@ -133,7 +132,7 @@ func syncData(id int64, stream *Stream, ctx appengine.Context) {
 
 // millisToTime converts Unix millis to time.Time.
 func millisToTime(t int64) time.Time {
-	return time.Unix(0, t*nanosPerMilli)
+	return time.Unix(0, t)
 }
 
 func fitnessMain(client *http.Client, user UserDetails, ctx appengine.Context) (map[string]int64, time.Time) {
@@ -155,7 +154,7 @@ func fitnessMain(client *http.Client, user UserDetails, ctx appengine.Context) (
 	}
 	for _, p := range data.Point {
 		for _, v := range p.Value {
-			last_processed_event_time = millisToTime(p.ModifiedTimeMillis)
+			last_processed_event_time = nanosToTime(p.endTimeNanos)
 			t := last_processed_event_time.Format(layout)
 			sumStepsByHour[t] += v.IntVal
 			totalSteps += v.IntVal
