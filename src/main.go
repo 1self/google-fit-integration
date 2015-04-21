@@ -154,7 +154,7 @@ func fitnessMain(client *http.Client, user UserDetails, ctx appengine.Context) (
 	}
 	for _, p := range data.Point {
 		for _, v := range p.Value {
-			last_processed_event_time = nanosToTime(p.endTimeNanos)
+			last_processed_event_time = nanosToTime(p.EndTimeNanos)
 			t := last_processed_event_time.Format(layout)
 			sumStepsByHour[t] += v.IntVal
 			totalSteps += v.IntVal
