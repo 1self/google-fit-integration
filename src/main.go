@@ -13,7 +13,7 @@ import (
 
 const (
 	layout                  = time.RFC3339
-	HOST_DOMAIN             = "http://gfit-1self-integration.appspot.com"
+	HOST_DOMAIN             = "https://google-fit.1self.co"
 	SYNC_ENDPOINT           = "/sync"
 	OAUTH_CALLBACK_ENDPOINT = "/authRedirect"
 )
