@@ -65,7 +65,7 @@ func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, ctx appengine
 func getSyncEvent(action string) []byte {
 	var listOfEvents []SyncEvent
 	syncEvent := SyncEvent{
-		ObjectTags: []string{"sync"},
+		ObjectTags: []string{"1self", "integration", "sync"},
 		ActionTags: []string{action},
 		DateTime:   time.Now().Format(layout),
 		Properties: map[string]string{
