@@ -31,6 +31,7 @@ type Event struct {
 	ActionTags []string         `json:"actionTags"`
 	DateTime   string           `json:"dateTime"`
 	Properties map[string]int64 `json:"properties"`
+	Source     string           `json:"source"`
 }
 
 type SyncEvent struct {
@@ -38,6 +39,7 @@ type SyncEvent struct {
 	ActionTags []string          `json:"actionTags"`
 	DateTime   string            `json:"dateTime"`
 	Properties map[string]string `json:"properties"`
+	Source     string            `json:"source"`
 }
 
 type Stream struct {
@@ -66,11 +68,11 @@ func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, ctx context.C
 func getSyncEvent(action string) []byte {
 	var listOfEvents []SyncEvent
 	syncEvent := SyncEvent{
-		ObjectTags: []string{"sync"},
+		ObjectTags: []string{"1self", "integration", "sync"},
 		ActionTags: []string{action},
 		DateTime:   time.Now().Format(layout),
+		Source: 	"1self-google-fit"
 		Properties: map[string]string{
-			"source": "Google Fit",
 		},
 	}
 	listOfEvents = append(listOfEvents, syncEvent)
@@ -87,6 +89,7 @@ func formatEvents(stepsMapPerHour map[string]int64) []Event {
 			ObjectTags: []string{"self"},
 			ActionTags: []string{"exercise", "walk"},
 			DateTime:   t,
+			Source: "1self-google-fit",
 			Properties: map[string]int64{
 				"steps": sum,
 			},
