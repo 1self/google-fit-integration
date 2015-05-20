@@ -1,10 +1,12 @@
 package main
 
 import (
-	"appengine"
 	"code.google.com/p/sadbox/appengine/sessions"
 	"fmt"
+	"golang.org/x/net/context"
 	fitness "google.golang.org/api/fitness/v1"
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -36,8 +38,8 @@ func login(w http.ResponseWriter, r *http.Request) {
 	session.Values["1self-username"] = username
 	save_err := session.Save(r, w)
 
-	ctx.Debugf("session %v, error %v", session, err)
-	ctx.Debugf("session save error %v", save_err)
+	log.Debugf(ctx, "session %v, error %v", session, err)
+	log.Debugf(ctx, "session save error %v", save_err)
 	authURL := getAuthURL(ctx)
 	http.Redirect(w, r, authURL, 301)
 }
@@ -45,10 +47,10 @@ func login(w http.ResponseWriter, r *http.Request) {
 func sess(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	session, err := mStore.Get(r, "1self-meta")
-	ctx.Debugf("session %v, error %v", session, err)
+	log.Debugf(ctx, "session %v, error %v", session, err)
 
-	ctx.Debugf("username: %v", session.Values["1self-username"])
-	ctx.Debugf("tok: %v", session.Values["1self-registrationToken"])
+	log.Debugf(ctx, "username: %v", session.Values["1self-username"])
+	log.Debugf(ctx, "tok: %v", session.Values["1self-registrationToken"])
 }
 
 func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +58,7 @@ func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	dbId := processCodeAndStoreToken(code, ctx)
 
-	ctx.Debugf("database stored id %v", dbId)
+	log.Debugf(ctx, "database stored id %v", dbId)
 	session, _ := mStore.Get(r, "1self-meta")
 	oneselfRegToken := fmt.Sprintf("%v", session.Values["1self-registrationToken"])
 	oneselfUsername := fmt.Sprintf("%v", session.Values["1self-username"])
@@ -84,7 +86,7 @@ func syncOffline(w http.ResponseWriter, r *http.Request) {
 		WriteToken: writeToken,
 	}
 
-	ctx.Debugf("Started sync request for %v", uid)
+	log.Debugf(ctx, "Started sync request for %v", uid)
 	dbId, _ := strconv.ParseInt(uid, 10, 64)
 
 	syncData(dbId, stream, ctx)
@@ -112,8 +114,8 @@ func init() {
 	registerClient("fitness", strings.Join(scopes, " "))
 }
 
-func syncData(id int64, stream *Stream, ctx appengine.Context) {
-	ctx.Debugf("Sync started for %v", id)
+func syncData(id int64, stream *Stream, ctx context.Context) {
+	log.Debugf(ctx, "Sync started for %v", id)
 	startSyncEvent := getSyncEvent("start")
 	sendEvents(startSyncEvent, stream, ctx)
 
@@ -125,7 +127,7 @@ func syncData(id int64, stream *Stream, ctx appengine.Context) {
 	sendTo1self(sumStepsByHour, stream, ctx)
 
 	updateUser(id, user, ctx)
-	ctx.Debugf("Sync successfully ended for %v, sending 1self complete event", id)
+	log.Debugf(ctx, "Sync successfully ended for %v, sending 1self complete event", id)
 	completeSyncEvent := getSyncEvent("complete")
 	sendEvents(completeSyncEvent, stream, ctx)
 }
@@ -134,10 +136,10 @@ func nanosToTime(t int64) time.Time {
 	return time.Unix(0, t)
 }
 
-func fitnessMain(client *http.Client, user UserDetails, ctx appengine.Context) (map[string]int64, time.Time) {
+func fitnessMain(client *http.Client, user UserDetails, ctx context.Context) (map[string]int64, time.Time) {
 	svc, err := fitness.New(client)
 	if err != nil {
-		ctx.Criticalf("Unable to create Fitness service: %v", err)
+		log.Criticalf(ctx, "Unable to create Fitness service: %v", err)
 	}
 
 	var totalSteps int64 = 0
@@ -149,7 +151,7 @@ func fitnessMain(client *http.Client, user UserDetails, ctx appengine.Context) (
 	setID := fmt.Sprintf("%v-%v", last_processed_event_time.UnixNano(), maxTime)
 	data, err := svc.Users.DataSources.Datasets.Get("me", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID).Do()
 	if err != nil {
-		ctx.Criticalf("Unable to retrieve user's data source stream %v, %v: %v", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID, err)
+		log.Criticalf(ctx, "Unable to retrieve user's data source stream %v, %v: %v", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID, err)
 	}
 	for _, p := range data.Point {
 		for _, v := range p.Value {
@@ -157,11 +159,11 @@ func fitnessMain(client *http.Client, user UserDetails, ctx appengine.Context) (
 			t := last_processed_event_time.Format(layout)
 			sumStepsByHour[t] += v.IntVal
 			totalSteps += v.IntVal
-			ctx.Debugf("data at %v = %v", t, v.IntVal)
+			log.Debugf(ctx, "data at %v = %v", t, v.IntVal)
 		}
 	}
 
-	ctx.Debugf("Total steps so far today = %v", totalSteps)
+	log.Debugf(ctx, "Total steps so far today = %v", totalSteps)
 
 	return sumStepsByHour, last_processed_event_time
 }

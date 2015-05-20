@@ -3,15 +3,15 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
-	"appengine"
-	"appengine/datastore"
+	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/appengine/datastore"
+	"google.golang.org/appengine/log"
 )
 
 var (
@@ -30,7 +30,7 @@ type UserDetails struct {
 	LastSyncTime time.Time
 }
 
-func getAuthURL(ctx appengine.Context) string {
+func getAuthURL(ctx context.Context) string {
 	config := getConfig()
 
 	return authURLFor(ctx, config)
@@ -54,32 +54,32 @@ func registerClient(name, scope string) {
 	demoScope[name] = scope
 }
 
-func findUserById(id int64, ctx appengine.Context) UserDetails {
-	ctx.Debugf("Starting to fetch user: %v", id)
+func findUserById(id int64, ctx context.Context) UserDetails {
+	log.Debugf(ctx, "Starting to fetch user: %v", id)
 	var userDetails UserDetails
 
 	key := datastore.NewKey(ctx, "UserDetails", "", id, nil)
 	err := datastore.Get(ctx, key, &userDetails)
 	if err != nil {
-		ctx.Debugf("error while fetching records: %v", err)
+		log.Debugf(ctx, "error while fetching records: %v", err)
 	}
 
-	ctx.Debugf("found record %v", userDetails)
+	log.Debugf(ctx, "found record %v", userDetails)
 
 	return userDetails
 }
 
-func updateUser(id int64, user UserDetails, ctx appengine.Context) {
+func updateUser(id int64, user UserDetails, ctx context.Context) {
 	key := datastore.NewKey(ctx, "UserDetails", "", id, nil)
 	_, err := datastore.Put(ctx, key, &user)
 	if err != nil {
-		ctx.Criticalf("Problem while updating user: %v", err)
+		log.Criticalf(ctx, "Problem while updating user: %v", err)
 	}
 
-	ctx.Debugf("User updated successfully")
+	log.Debugf(ctx, "User updated successfully")
 }
 
-func getClientForUser(user UserDetails, ctx appengine.Context) *http.Client {
+func getClientForUser(user UserDetails, ctx context.Context) *http.Client {
 	config := getConfig()
 	token := new(oauth2.Token)
 	token.AccessToken = user.AccessToken
@@ -90,7 +90,7 @@ func getClientForUser(user UserDetails, ctx appengine.Context) *http.Client {
 	return config.Client(ctx, token)
 }
 
-func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
+func saveToken(ctx context.Context, token *oauth2.Token) int64 {
 	ud := UserDetails{
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
@@ -102,32 +102,32 @@ func saveToken(ctx appengine.Context, token *oauth2.Token) int64 {
 	key := datastore.NewIncompleteKey(ctx, "UserDetails", nil)
 	id, err := datastore.Put(ctx, key, &ud)
 	if err != nil {
-		ctx.Criticalf("Problem while storing token: %v", err)
+		log.Criticalf(ctx, "Problem while storing token: %v", err)
 	}
 
-	ctx.Debugf("Token stored successfully with id: %v", id.IntID())
+	log.Debugf(ctx, "Token stored successfully with id: %v", id.IntID())
 
 	return id.IntID()
 }
 
-func authURLFor(ctx appengine.Context, config *oauth2.Config) string {
+func authURLFor(ctx context.Context, config *oauth2.Config) string {
 	randState := fmt.Sprintf("st%d", time.Now().UnixNano())
 
 	authURL := config.AuthCodeURL(randState, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
-	ctx.Debugf("Authorize this app at: %s", authURL)
+	log.Debugf(ctx, "Authorize this app at: %s", authURL)
 	return authURL
 }
 
-func processCodeAndStoreToken(code string, ctx appengine.Context) int64 {
-	ctx.Debugf("Got code")
+func processCodeAndStoreToken(code string, ctx context.Context) int64 {
+	log.Debugf(ctx, "Got code")
 	config := getConfig()
 
 	token, err := config.Exchange(ctx, code)
 	if err != nil {
-		ctx.Criticalf("Token exchange error: %v", err)
+		log.Criticalf(ctx, "Token exchange error: %v", err)
 	}
 
-	ctx.Debugf("Token found %v", token)
+	log.Debugf(ctx, "Token found %v", token)
 	dbId := saveToken(ctx, token)
 
 	return dbId
@@ -136,7 +136,7 @@ func processCodeAndStoreToken(code string, ctx appengine.Context) int64 {
 func fileContents(filename string) string {
 	slurp, err := ioutil.ReadFile(filename)
 	if err != nil {
-		log.Fatalf("Error reading %q: %v", filename, err)
+		//log.Fatalf(ctx, "Error reading %q: %v", filename, err)
 	}
 	return strings.TrimSpace(string(slurp))
 }
