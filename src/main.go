@@ -1,4 +1,4 @@
-package main
+	package main
 
 import (
 	"code.google.com/p/sadbox/appengine/sessions"
@@ -11,16 +11,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"os"	
 )
 
 const (
 	layout                  = time.RFC3339
-	HOST_DOMAIN             = "https://google-fit.1self.co"
 	SYNC_ENDPOINT           = "/sync"
 	OAUTH_CALLBACK_ENDPOINT = "/authRedirect"
 )
 
 var mStore = sessions.NewMemcacheStore("", []byte(fileContents("app-session-secret.txt")))
+var CONTEXT_URI             = os.Getenv("CONTEXT_URI")
 
 func login(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)

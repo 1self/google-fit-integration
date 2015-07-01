@@ -3,3 +3,4 @@ google-api-clientId.txt
 1self-appId.txt
 1self-appSecret.txt
 app-session-secret.txt
+.env
