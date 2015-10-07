@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"os"
 )
 
 var (
@@ -105,7 +106,6 @@ func getUrlFetchClient(ctx context.Context, t time.Duration) *http.Client {
 	return &http.Client{
 		Transport: &urlfetch.Transport{
 			Context:  ctx,
-			Deadline: t,
 		},
 	}
 }
@@ -138,8 +138,8 @@ func sendEvents(json_events []byte, stream *Stream, ctx context.Context) {
 
 func registerStream(ctx context.Context, uid int64, regToken string, username string) *Stream {
 	log.Debugf(ctx, "Registering stream")
-	appId := fileContents(oneselfappIDFile)
-	appSecret := fileContents(oneselfappSecretFile)
+	appId := os.Getenv("APPID")
+	appSecret := os.Getenv("APPSECRET");
 
 	url := API_ENDPOINT + fmt.Sprintf(REGISTER_STREAM_ENDPOINT, username)
 	log.Debugf(ctx, "URL:", url)
@@ -182,5 +182,5 @@ func registerStream(ctx context.Context, uid int64, regToken string, username st
 }
 
 func syncCallbackUrl(uid int64) string {
-	return HOST_DOMAIN + SYNC_ENDPOINT + "?uid=" + strconv.FormatInt(uid, 10) + "&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
+	return CONTEXT_URI + SYNC_ENDPOINT + "?uid=" + strconv.FormatInt(uid, 10) + "&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
 }

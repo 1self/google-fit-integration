@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"os"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -31,19 +32,25 @@ type UserDetails struct {
 }
 
 func getAuthURL(ctx context.Context) string {
-	config := getConfig()
+	config := getConfig(ctx)
 
 	return authURLFor(ctx, config)
 }
 
-func getConfig() *oauth2.Config {
-	return &oauth2.Config{
-		ClientID:     fileContents(clientIDFile),
-		ClientSecret: fileContents(secretFile),
+func getConfig(ctx context.Context) *oauth2.Config {
+	result := &oauth2.Config{
+		ClientID:     os.Getenv("$GOOGLEFIT_CLIENTID"),
+		ClientSecret: os.Getenv("$GOOGLEFIT_CLIENTSECRET"),
 		Endpoint:     google.Endpoint,
 		Scopes:       []string{demoScope[name]},
-		RedirectURL:  HOST_DOMAIN + OAUTH_CALLBACK_ENDPOINT,
+		RedirectURL:  CONTEXT_URI + OAUTH_CALLBACK_ENDPOINT,
 	}
+
+	log.Infof(ctx, "Client id %s", result.ClientID)
+	log.Infof(ctx, "Endpoint %s", result.Endpoint)
+	log.Infof(ctx, "Client secret %s", result.ClientSecret)
+	log.Infof(ctx, "RedirectURL %s", result.RedirectURL)
+	return result;
 }
 
 var (
@@ -80,7 +87,7 @@ func updateUser(id int64, user UserDetails, ctx context.Context) {
 }
 
 func getClientForUser(user UserDetails, ctx context.Context) *http.Client {
-	config := getConfig()
+	config := getConfig(ctx)
 	token := new(oauth2.Token)
 	token.AccessToken = user.AccessToken
 	token.RefreshToken = user.RefreshToken
@@ -120,7 +127,7 @@ func authURLFor(ctx context.Context, config *oauth2.Config) string {
 
 func processCodeAndStoreToken(code string, ctx context.Context) int64 {
 	log.Debugf(ctx, "Got code")
-	config := getConfig()
+	config := getConfig(ctx)
 
 	token, err := config.Exchange(ctx, code)
 	if err != nil {
