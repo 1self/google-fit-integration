@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	clientIDFile = "google-api-clientId.txt"
-	secretFile   = "google-api-clientSecret.txt"
+	clientIDFile = "clientid.setting"
+	secretFile   = "clientsecret.setting"
 	name         = "fitness"
 )
 

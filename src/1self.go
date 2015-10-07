@@ -14,12 +14,14 @@ import (
 )
 
 var (
-	oneselfappIDFile     = "1self-appId.txt"
-	oneselfappSecretFile = "1self-appSecret.txt"
+	oneselfappIDFile     = "1selfappid.setting"
+	oneselfappSecretFile = "1selfappsecret.setting"
 )
 
+var API_ENDPOINT string = fileContents("apihost.setting")
+
 const (
-	API_ENDPOINT             string = "http://app.1self.co"
+	
 	SEND_BATCH_EVENTS_PATH   string = "/v1/streams/%v/events/batch"
 	REGISTER_STREAM_ENDPOINT string = "/v1/users/%v/streams"
 	VISUALIZATION_ENDPOINT   string = "/v1/streams/%v/events/steps/walked/sum(numberOfSteps)/daily/barchart"
@@ -163,8 +165,8 @@ func registerStream(ctx context.Context, uid int64, regToken string, username st
 	}
 	defer resp.Body.Close()
 
-	log.Debugf(ctx, "response Status: %v", resp.Status)
-	log.Debugf(ctx, "response Headers: %v", resp.Header)
+	log.Debugf(ctx, "registerStream: response Status: %v", resp.Status)
+	log.Debugf(ctx, "registerStream: response Headers: %v", resp.Header)
 	body, _ := ioutil.ReadAll(resp.Body)
 	log.Debugf(ctx, "response Body: %v", string(body))
 

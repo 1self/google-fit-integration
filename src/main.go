@@ -13,19 +13,23 @@ import (
 	"time"
 )
 
+
+
 const (
 	layout                  = time.RFC3339
-	HOST_DOMAIN             = "https://google-fit.1self.co"
 	SYNC_ENDPOINT           = "/sync"
 	OAUTH_CALLBACK_ENDPOINT = "/authRedirect"
 )
 
-var mStore = sessions.NewMemcacheStore("", []byte(fileContents("app-session-secret.txt")))
+var HOST_DOMAIN = fileContents("host.setting")
+
+var mStore = sessions.NewMemcacheStore("", []byte(fileContents("appsessionsecret.setting")))
 
 func login(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	regToken := r.FormValue("token")
 	username := r.FormValue("username")
+	redirectUri := r.FormValue("redirect_uri")
 
 	if "" == regToken || "" == username {
 		w.Write([]byte("Invalid request, no 1self metadata found"))
@@ -36,11 +40,18 @@ func login(w http.ResponseWriter, r *http.Request) {
 	session, err := mStore.Get(r, "1self-meta")
 	session.Values["1self-registrationToken"] = regToken
 	session.Values["1self-username"] = username
+	session.Values["1self-redirectUri"] = redirectUri
 	save_err := session.Save(r, w)
+
+	
+	log.Debugf(ctx, "session registrationToken %v", session.Values["1self-registrationToken"])
+	log.Debugf(ctx, "session username %v", session.Values["1self-username"])
+	log.Debugf(ctx, "session redirectUri %v", session.Values["1self-redirectUri"])
 
 	log.Debugf(ctx, "session %v, error %v", session, err)
 	log.Debugf(ctx, "session save error %v", save_err)
 	authURL := getAuthURL(ctx)
+	log.Debugf(ctx, "redirecting to %v", authURL)
 	http.Redirect(w, r, authURL, 301)
 }
 
@@ -51,6 +62,7 @@ func sess(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf(ctx, "username: %v", session.Values["1self-username"])
 	log.Debugf(ctx, "tok: %v", session.Values["1self-registrationToken"])
+	log.Debugf(ctx, "redirectUri: %v", session.Values["1self-redirectUri"])
 }
 
 func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +78,7 @@ func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
 	oneself_stream := registerStream(ctx, dbId, oneselfRegToken, oneselfUsername)
 	syncData(dbId, oneself_stream, ctx)
 
-	integrationsURL := API_ENDPOINT + AFTER_SETUP_ENDPOINT
+	integrationsURL := fmt.Sprintf("%v", session.Values["1self-redirectUri"])
 	http.Redirect(w, r, integrationsURL, 301)
 }
 
