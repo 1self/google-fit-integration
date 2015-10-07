@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"os"	
 )
 
 
@@ -23,6 +22,11 @@ const (
 )
 
 var HOST_DOMAIN = fileContents("host.setting")
+var GOOGLE_CLIENT_ID = fileContents("clientid.setting")
+var GOOGLE_CLIENT_SECRET = fileContents("clientsecret.setting")
+var ONESELF_APP_ID = fileContents("1selfappid.setting")
+var ONESELF_APP_SECRET  = fileContents("1selfappsecret.setting")
+var API_ENDPOINT string = fileContents("apihost.setting")
 
 var mStore = sessions.NewMemcacheStore("", []byte(fileContents("appsessionsecret.setting")))
 

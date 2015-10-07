@@ -11,15 +11,12 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-	"os"
 )
 
 var (
 	oneselfappIDFile     = "1selfappid.setting"
 	oneselfappSecretFile = "1selfappsecret.setting"
 )
-
-var API_ENDPOINT string = fileContents("apihost.setting")
 
 const (
 	
@@ -138,8 +135,8 @@ func sendEvents(json_events []byte, stream *Stream, ctx context.Context) {
 
 func registerStream(ctx context.Context, uid int64, regToken string, username string) *Stream {
 	log.Debugf(ctx, "Registering stream")
-	appId := os.Getenv("APPID")
-	appSecret := os.Getenv("APPSECRET");
+	appId := ONESELF_APP_ID
+	appSecret := ONESELF_APP_SECRET
 
 	url := API_ENDPOINT + fmt.Sprintf(REGISTER_STREAM_ENDPOINT, username)
 	log.Debugf(ctx, "URL:", url)
@@ -182,5 +179,5 @@ func registerStream(ctx context.Context, uid int64, regToken string, username st
 }
 
 func syncCallbackUrl(uid int64) string {
-	return CONTEXT_URI + SYNC_ENDPOINT + "?uid=" + strconv.FormatInt(uid, 10) + "&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
+	return HOST_DOMAIN + SYNC_ENDPOINT + "?uid=" + strconv.FormatInt(uid, 10) + "&latestSyncField={{latestSyncField}}&streamid={{streamid}}"
 }

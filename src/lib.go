@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"os"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -39,11 +38,11 @@ func getAuthURL(ctx context.Context) string {
 
 func getConfig(ctx context.Context) *oauth2.Config {
 	result := &oauth2.Config{
-		ClientID:     os.Getenv("$GOOGLEFIT_CLIENTID"),
-		ClientSecret: os.Getenv("$GOOGLEFIT_CLIENTSECRET"),
+		ClientID:     GOOGLE_CLIENT_ID,
+		ClientSecret: GOOGLE_CLIENT_SECRET,
 		Endpoint:     google.Endpoint,
 		Scopes:       []string{demoScope[name]},
-		RedirectURL:  CONTEXT_URI + OAUTH_CALLBACK_ENDPOINT,
+		RedirectURL:  HOST_DOMAIN + OAUTH_CALLBACK_ENDPOINT,
 	}
 
 	log.Infof(ctx, "Client id %s", result.ClientID)
