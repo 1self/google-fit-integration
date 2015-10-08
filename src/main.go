@@ -71,19 +71,29 @@ func sess(w http.ResponseWriter, r *http.Request) {
 }
 
 func getTokenAndSyncData(w http.ResponseWriter, r *http.Request) {
-	code := r.FormValue("code")
+	session, _ := mStore.Get(r, "1self-meta")
 	ctx := appengine.NewContext(r)
+	error := r.FormValue("error")
+	if error == "access_denied" {
+		log.Debugf(ctx, "gotTokenAndSyncData: error is: %v", error)
+		integrationsURL := fmt.Sprintf("%v?success=false&error=user_denied_access", session.Values["1self-redirectUri"])
+		http.Redirect(w, r, integrationsURL, 301)	
+		return
+	}
+
+	code := r.FormValue("code")
 	dbId := processCodeAndStoreToken(code, ctx)
 
+	
+
 	log.Debugf(ctx, "database stored id %v", dbId)
-	session, _ := mStore.Get(r, "1self-meta")
 	oneselfRegToken := fmt.Sprintf("%v", session.Values["1self-registrationToken"])
 	oneselfUsername := fmt.Sprintf("%v", session.Values["1self-username"])
 
 	oneself_stream := registerStream(ctx, dbId, oneselfRegToken, oneselfUsername)
 	syncData(dbId, oneself_stream, ctx)
 
-	integrationsURL := fmt.Sprintf("%v", session.Values["1self-redirectUri"])
+	integrationsURL := fmt.Sprintf("%v?success=true", session.Values["1self-redirectUri"])
 	http.Redirect(w, r, integrationsURL, 301)
 }
 
