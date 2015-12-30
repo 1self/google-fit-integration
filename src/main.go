@@ -175,7 +175,14 @@ func fitnessMain(client *http.Client, user UserDetails, ctx context.Context) (ma
 
 	var sumStepsByHour = make(map[string]int64)
 
-	setID := fmt.Sprintf("%v-%v", last_processed_event_time.UnixNano(), maxTime)
+	// eas: +1000000 here because the last processed event time is the time of the event that we already have, 
+	// so we need to add something to the last sync date to prevent the same data from being retrieved 
+	// again. we have to pass nanoseconds to the golang api for google fit, but i'm not sure what the resolution
+	// of the api is, likely milliseconds. For that reason, we add a million nano-seconds - a second - to the last 
+	// sync date to ensure we don't get the last one
+	var fromTime = last_processed_event_time.UnixNano() + 1000000
+	setID := fmt.Sprintf("%v-%v", fromTime, maxTime)
+	log.Debugf(ctx, setID)
 	data, err := svc.Users.DataSources.Datasets.Get("me", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID).Do()
 	if err != nil {
 		log.Criticalf(ctx, "Unable to retrieve user's data source stream %v, %v: %v", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID, err)
