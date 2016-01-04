@@ -37,7 +37,7 @@ type SyncEvent struct {
 	ObjectTags []string          `json:"objectTags"`
 	ActionTags []string          `json:"actionTags"`
 	DateTime   string            `json:"dateTime"`
-	Properties map[string]string `json:"properties"`
+	Properties map[string]interface{} `json:"properties"`
 }
 
 type Stream struct {
@@ -69,7 +69,23 @@ func getSyncEvent(action string) []byte {
 		ObjectTags: []string{"1self", "integration", "sync"},
 		ActionTags: []string{action},
 		DateTime:   time.Now().Format(layout),
-		Properties: map[string]string{},
+		Properties: map[string]interface{}{},
+	}
+	listOfEvents = append(listOfEvents, syncEvent)
+	json_events, _ := json.Marshal(listOfEvents)
+
+	return json_events
+}
+
+func getSyncErrorEvent(action string, errorCode int64) []byte {
+	var listOfEvents []SyncEvent
+	syncEvent := SyncEvent{
+		ObjectTags: []string{"1self", "integration", "sync"},
+		ActionTags: []string{action},
+		DateTime:   time.Now().Format(layout),
+		Properties: map[string]interface{}{
+				"code": errorCode,	
+			},
 	}
 	listOfEvents = append(listOfEvents, syncEvent)
 	json_events, _ := json.Marshal(listOfEvents)

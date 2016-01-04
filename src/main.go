@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"regexp"
+	"errors"	
 )
 
 
@@ -29,6 +31,8 @@ var ONESELF_APP_SECRET  = fileContents("1selfappsecret.setting")
 var API_ENDPOINT string = fileContents("apihost.setting")
 
 var mStore = sessions.NewMemcacheStore("", []byte(fileContents("appsessionsecret.setting")))
+
+
 
 func login(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
@@ -148,7 +152,13 @@ func syncData(id int64, stream *Stream, ctx context.Context) {
 
 	user := findUserById(id, ctx)
 	googleClient := getClientForUser(user, ctx)
-	sumStepsByHour, lastEventTime := fitnessMain(googleClient, user, ctx)
+	sumStepsByHour, lastEventTime, dataError := fitnessMain(googleClient, user, ctx)
+	 if dataError != nil {
+		syncError := getSyncErrorEvent("error", 401)
+		log.Debugf(ctx, "Sending error event")
+		sendEvents(syncError, stream, ctx)
+		return
+	}
 	user.LastSyncTime = lastEventTime
 
 	sendTo1self(sumStepsByHour, stream, ctx)
@@ -163,7 +173,7 @@ func nanosToTime(t int64) time.Time {
 	return time.Unix(0, t)
 }
 
-func fitnessMain(client *http.Client, user UserDetails, ctx context.Context) (map[string]int64, time.Time) {
+func fitnessMain(client *http.Client, user UserDetails, ctx context.Context) (map[string]int64, time.Time, error) {
 	svc, err := fitness.New(client)
 	if err != nil {
 		log.Criticalf(ctx, "Unable to create Fitness service: %v", err)
@@ -185,7 +195,17 @@ func fitnessMain(client *http.Client, user UserDetails, ctx context.Context) (ma
 	log.Debugf(ctx, setID)
 	data, err := svc.Users.DataSources.Datasets.Get("me", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID).Do()
 	if err != nil {
+		invalidTokenRe, _ := regexp.Compile("cannot fetch token")
 		log.Criticalf(ctx, "Unable to retrieve user's data source stream %v, %v: %v", "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps", setID, err)
+		log.Criticalf(ctx, "error: %v", err.Error())
+		var isTokenError = invalidTokenRe.MatchString(err.Error())
+		var error = errors.New("dataset error: unable to retrieve dataset")
+		if isTokenError {
+			log.Criticalf(ctx, "token error")
+			error = errors.New("auth error: refresh token is invalid")
+		}	
+
+		return sumStepsByHour, last_processed_event_time, error
 	}
 	for _, p := range data.Point {
 		for _, v := range p.Value {
@@ -199,5 +219,5 @@ func fitnessMain(client *http.Client, user UserDetails, ctx context.Context) (ma
 
 	log.Debugf(ctx, "Total steps so far today = %v", totalSteps)
 
-	return sumStepsByHour, last_processed_event_time
+	return sumStepsByHour, last_processed_event_time, err
 }
