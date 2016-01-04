@@ -103,7 +103,7 @@ func saveToken(ctx context.Context, token *oauth2.Token) int64 {
 		TokenType:    token.TokenType,
 		TokenExpiry:  token.Expiry,
 		Date:         time.Now(),
-		LastSyncTime: time.Now().AddDate(-1, -1, 0),
+		LastSyncTime: time.Now().AddDate(0, -1, 0),
 	}
 	key := datastore.NewIncompleteKey(ctx, "UserDetails", nil)
 	id, err := datastore.Put(ctx, key, &ud)
