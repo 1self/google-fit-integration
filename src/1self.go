@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	//"errors"	
 )
 
 var (
@@ -50,17 +51,18 @@ func getVisualizationUrl(oneself_stream *Stream) string {
 	return API_ENDPOINT + fmt.Sprintf(VISUALIZATION_ENDPOINT, oneself_stream.Id)
 }
 
-func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, ctx context.Context) {
+func sendTo1self(stepsMapPerHour map[string]int64, stream *Stream, ctx context.Context) (error){
 	eventsList := formatEvents(stepsMapPerHour)
-	if len(eventsList) == 0 {
-		log.Debugf(ctx, "No events to send to 1self")
-		return
-	}
+	// if len(eventsList) == 0 {
+	// 	log.Debugf(ctx, "No events to send to 1self")
+	// 	return nil
+	// }
 
 	json_events, _ := json.Marshal(eventsList)
 	log.Debugf(ctx, "Events list: %v", eventsList)
 
-	sendEvents(json_events, stream, ctx)
+	sendErr := sendEvents(json_events, stream, ctx)
+	return sendErr
 }
 
 func getSyncEvent(action string) []byte {
@@ -120,7 +122,8 @@ func getUrlFetchClient(ctx context.Context, t time.Duration) *http.Client {
 	}
 }
 
-func sendEvents(json_events []byte, stream *Stream, ctx context.Context) {
+func sendEvents(json_events []byte, stream *Stream, ctx context.Context) (error){
+	
 	log.Debugf(ctx, "Starting to send events to 1self")
 	streamId := stream.Id
 	writeToken := stream.WriteToken
@@ -132,11 +135,11 @@ func sendEvents(json_events []byte, stream *Stream, ctx context.Context) {
 	req.Header.Set("Authorization", writeToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := getUrlFetchClient(ctx, time.Second*60)
+	client := getUrlFetchClient(ctx, time.Second * 60)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -144,6 +147,8 @@ func sendEvents(json_events []byte, stream *Stream, ctx context.Context) {
 	log.Debugf(ctx, "response Headers: %v", resp.Header)
 	body, _ := ioutil.ReadAll(resp.Body)
 	log.Debugf(ctx, "response Body after sending events: %v", string(body))
+
+	return nil
 }
 
 func registerStream(ctx context.Context, uid int64, regToken string, username string) *Stream {

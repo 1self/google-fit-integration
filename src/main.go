@@ -155,13 +155,19 @@ func syncData(id int64, stream *Stream, ctx context.Context) {
 	sumStepsByHour, lastEventTime, dataError := fitnessMain(googleClient, user, ctx)
 	 if dataError != nil {
 		syncError := getSyncErrorEvent("error", 401)
-		log.Debugf(ctx, "Sending error event")
+		log.Debugf(ctx, "Sending error event because failed to get data from google fit")
 		sendEvents(syncError, stream, ctx)
 		return
 	}
 	user.LastSyncTime = lastEventTime
 
-	sendTo1self(sumStepsByHour, stream, ctx)
+	sendTo1SelfErr := sendTo1self(sumStepsByHour, stream, ctx)
+	if(sendTo1SelfErr != nil) {
+		syncError := getSyncErrorEvent("error", 500)
+		log.Debugf(ctx, "Sending error event because send to 1self failed")
+		sendEvents(syncError, stream, ctx)
+		return;
+	}
 
 	updateUser(id, user, ctx)
 	log.Debugf(ctx, "Sync successfully ended for %v, sending 1self complete event", id)
