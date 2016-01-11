@@ -115,6 +115,7 @@ func getUrlFetchClient(ctx context.Context, t time.Duration) *http.Client {
 	return &http.Client{
 		Transport: &urlfetch.Transport{
 			Context:  ctx,
+			Deadline: t,
 		},
 	}
 }
